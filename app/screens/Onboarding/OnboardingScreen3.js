@@ -1,17 +1,88 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import colors from '../../theme/colors';
+import spacing from '../../theme/spacing';
+
+const { width, height } = Dimensions.get('window');
+const IMAGE_SIZE = Math.min(width * 0.7, 220);
 
 export default function OnboardingScreen3() {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 700,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Get Started</Text>
-      <Text style={styles.subtitle}>Sign in to access your pharmacy dashboard and manage everything on the go.</Text>
-    </View>
+    <LinearGradient
+      colors={['#1ABA7F', '#225F91']}
+      style={styles.gradientBg}
+    >
+      <Animated.View style={[styles.centered, { opacity: fadeAnim }]}> 
+        <View style={styles.emojiCircle}>
+          <Text style={styles.emoji}>📊</Text>
+        </View>
+        <Text style={styles.title}>Effortless Inventory & Insights</Text>
+        <Text style={styles.subtitle}>
+          Update stock, manage medications, and view analytics—all in one place. Make data-driven decisions for your pharmacy.
+        </Text>
+      </Animated.View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
-  subtitle: { fontSize: 16, color: '#666', textAlign: 'center' },
+  gradientBg: {
+    flex: 1,
+    width,
+    height,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.large,
+    width,
+  },
+  emojiCircle: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+    borderRadius: IMAGE_SIZE / 2,
+    backgroundColor: 'rgba(34,95,145,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.large,
+    shadowColor: '#225F91',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  emoji: { fontSize: IMAGE_SIZE * 0.4, color: '#1ABA7F' },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: spacing.medium,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    textShadowColor: 'rgba(34,95,145,0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
+  },
+  subtitle: {
+    fontSize: 17,
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '500',
+    lineHeight: 24,
+    marginBottom: spacing.large,
+    textShadowColor: 'rgba(34,95,145,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
 }); 
