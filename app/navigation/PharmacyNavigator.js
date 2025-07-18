@@ -8,6 +8,7 @@ import AnalyticsScreen from '../screens/Pharmacy/AnalyticsScreen';
 import { Ionicons } from '@expo/vector-icons';
 import OrdersStack from './OrdersStack';
 import DashboardStack from '../navigation/DashboardStack';
+import PoSStack from './PoSStack';
 
 const Tab = createBottomTabNavigator();
 
@@ -33,6 +34,7 @@ export default function PharmacyNavigator() {
       <Tab.Screen name="Dashboard" component={DashboardStack} />
       <Tab.Screen name="Orders" component={OrdersStack} />
       <Tab.Screen name="Inventory" component={InventoryScreen} />
+      <Tab.Screen name="PoS" component={PoSStack} options={{ tabBarLabel: 'PoS', tabBarIcon: ({ color, size }) => (<Ionicons name="cash" size={size} color={color} />) }} />
       <Tab.Screen name="Analytics" component={AnalyticsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>

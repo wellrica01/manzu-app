@@ -28,7 +28,7 @@ export default function LoginScreen({ navigation }) {
     setError('');
     try {
       const data = await loginApi(email, password);
-      await login(data.token, data.user);
+      await login(data.token, { ...data.user, pharmacy: data.pharmacy });
     } catch (err) {
       setError(err.message);
     } finally {

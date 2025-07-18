@@ -42,6 +42,7 @@ const STATUS_COLORS = {
 export default function DashboardScreen({ navigation }) {
   const { user, token } = useContext(AuthContext);
   const [data, setData] = useState(null);
+  const [recentOrders, setRecentOrders] = useState([]); // <-- new state
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -53,6 +54,14 @@ export default function DashboardScreen({ navigation }) {
       setLoading(true);
       const json = await apiRequest('/pharmacy/dashboard', 'GET', undefined, token);
       setData(json);
+      // Fetch recent orders (first 5)
+      const ordersRes = await apiRequest('/pharmacy/orders?page=1&limit=5', 'GET', undefined, token);
+      // Map backend orders to UI format
+      const mappedOrders = (ordersRes.orders || []).map(order => ({
+        ...order,
+        createdAt: new Date(order.createdAt),
+      }));
+      setRecentOrders(mappedOrders);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -116,24 +125,29 @@ export default function DashboardScreen({ navigation }) {
         </TouchableOpacity>
       </View>
       <FlatList
-        data={MOCK_RECENT_ORDERS}
+        data={recentOrders}
         keyExtractor={item => item.id.toString()}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.recentList}
+        ListEmptyComponent={
+          !loading && (
+            <Text style={{ color: '#888', padding: 16 }}>No recent orders found.</Text>
+          )
+        }
         renderItem={({ item }) => (
           <TouchableOpacity 
             style={styles.recentCard} 
             activeOpacity={0.85} 
             onPress={() => navigation.navigate('OrderDetails', { order: item })}
           >
-            <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] }]}> 
-              <Text style={styles.statusText}>{STATUS_LABELS[item.status]}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] || '#888' }]}> 
+              <Text style={styles.statusText}>{STATUS_LABELS[item.status] || item.status}</Text>
             </View>
             <Text style={styles.recentOrderId}>Order #{item.id}</Text>
-            <Text style={styles.recentOrderPatient}>{item.patient}</Text>
-            <Text style={styles.recentOrderTotal}>₦{item.total.toLocaleString()}</Text>
-            <Text style={styles.recentOrderDate}>{item.createdAt.toLocaleDateString()}</Text>
+            <Text style={styles.recentOrderPatient}>{item.name || 'N/A'}</Text>
+            <Text style={styles.recentOrderTotal}>₦{item.totalPrice?.toLocaleString() ?? '--'}</Text>
+            <Text style={styles.recentOrderDate}>{item.createdAt instanceof Date && !isNaN(item.createdAt) ? item.createdAt.toLocaleDateString() : '--'}</Text>
           </TouchableOpacity>
         )}
       />
@@ -148,7 +162,12 @@ export default function DashboardScreen({ navigation }) {
           <Animated.View style={[styles.header, { opacity: fadeAnim }]}> 
             <View style={styles.headerRow}>
               <View style={styles.headerText}>
-                <Text style={styles.welcome}>Welcome{user?.pharmacy?.name ? `, ${user.pharmacy.name}` : ''}!</Text>
+                {user?.pharmacy?.name && (
+                  <View style={styles.pharmacyNameRow}>
+                    <Ionicons name="business" size={28} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.pharmacyName}>Hi, {user.pharmacy.name}</Text>
+                  </View>
+                )}
                 <Text style={styles.subtitle}>Here’s your pharmacy at a glance.</Text>
               </View>
               <TouchableOpacity style={styles.notificationBtn} onPress={() => navigation.navigate('Notifications')}>
@@ -183,7 +202,8 @@ const styles = StyleSheet.create({
   header: { marginBottom: 12, alignItems: 'center', width: '100%' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', marginBottom: 12, paddingHorizontal: 8 },
   headerText: { flex: 1 },
-  welcome: { fontSize: 28, fontWeight: 'bold', color: '#fff', textAlign: 'left', textShadowColor: 'rgba(34,95,145,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
+  pharmacyNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  pharmacyName: { fontSize: 28, fontWeight: 'bold', color: '#fff', textAlign: 'left', textShadowColor: 'rgba(34,95,145,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
   subtitle: { fontSize: 16, color: '#fff', textAlign: 'left', marginTop: 6, textShadowColor: 'rgba(34,95,145,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   notificationBtn: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 10, marginLeft: 16 },
   // Cards

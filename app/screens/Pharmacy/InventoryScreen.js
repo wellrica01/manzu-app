@@ -7,6 +7,17 @@ import { fetchInventory } from '../../services/inventory';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 
+// Helper: fetch medication suggestions
+async function fetchMedSuggestions(query, token) {
+  if (!query) return [];
+  try {
+    const res = await apiRequest(`/medication-suggestions?q=${encodeURIComponent(query)}`, 'GET', undefined, token);
+    return res;
+  } catch {
+    return [];
+  }
+}
+
 export default function InventoryScreen() {
   const { token } = useContext(AuthContext);
   const [medications, setMedications] = useState([]);
@@ -20,6 +31,9 @@ export default function InventoryScreen() {
   const [form, setForm] = useState({ name: '', stock: '', price: '', expiryDate: '' });
   const [formLoading, setFormLoading] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'low', 'expired', 'in_stock'
+  const [medQuery, setMedQuery] = useState('');
+  const [medSuggestions, setMedSuggestions] = useState([]);
+  const [selectedMedication, setSelectedMedication] = useState(null);
 
   const loadInventory = async () => {
     setError('');
@@ -64,20 +78,23 @@ export default function InventoryScreen() {
 
   // Add Medication
   const handleAdd = async () => {
-    if (!form.name || !form.stock || !form.price) {
-      Alert.alert('Error', 'Name, stock, and price are required.');
+    if (!selectedMedication || !selectedMedication.id || !form.stock || !form.price) {
+      Alert.alert('Error', 'Medication, stock, and price are required.');
       return;
     }
     setFormLoading(true);
     try {
       await apiRequest('/pharmacy/medications', 'POST', {
-        medicationId: Date.now(), // Replace with actual medicationId from a select in a real app
+        medicationId: selectedMedication.id,
         stock: Number(form.stock),
         price: Number(form.price),
         expiryDate: form.expiryDate,
       }, token);
       setShowAddModal(false);
       setForm({ name: '', stock: '', price: '', expiryDate: '' });
+      setSelectedMedication(null);
+      setMedQuery('');
+      setMedSuggestions([]);
       loadInventory();
     } catch (err) {
       Alert.alert('Error', err.message);
@@ -164,13 +181,60 @@ export default function InventoryScreen() {
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>{isEdit ? 'Edit Medication' : 'Add Medication'}</Text>
           <ScrollView>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Name"
-              value={form.name}
-              onChangeText={v => setForm(f => ({ ...f, name: v }))}
-              editable={!isEdit}
-            />
+            {/* Medication autocomplete input (add only) */}
+            {!isEdit ? (
+              <View>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Search medication name"
+                  value={medQuery}
+                  onChangeText={async v => {
+                    setMedQuery(v);
+                    setSelectedMedication(null);
+                    setForm(f => ({ ...f, name: v }));
+                    if (v.length >= 2) {
+                      const suggestions = await fetchMedSuggestions(v, token);
+                      setMedSuggestions(suggestions);
+                    } else {
+                      setMedSuggestions([]);
+                    }
+                  }}
+                  editable={!isEdit}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                {medSuggestions.length > 0 && !selectedMedication && (
+                  <View style={{ backgroundColor: '#fff', borderRadius: 8, maxHeight: 180, marginBottom: 8, borderWidth: 1, borderColor: '#E5F6F0' }}>
+                    {medSuggestions.map(sug => (
+                      <TouchableOpacity
+                        key={sug.id}
+                        style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#E5F6F0' }}
+                        onPress={() => {
+                          setSelectedMedication(sug);
+                          setMedQuery(sug.displayName);
+                          setMedSuggestions([]);
+                        }}
+                      >
+                        <Text style={{ color: '#225F91', fontSize: 16 }}>{sug.displayName}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                {selectedMedication && (
+                  <View style={{ marginBottom: 8 }}>
+                    <Text style={{ color: '#1ABA7F', fontWeight: 'bold' }}>Selected: {selectedMedication.displayName}</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Name"
+                value={form.name}
+                onChangeText={v => setForm(f => ({ ...f, name: v }))}
+                editable={false}
+              />
+            )}
             <TextInput
               style={styles.modalInput}
               placeholder="Stock"

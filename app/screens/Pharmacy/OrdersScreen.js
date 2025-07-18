@@ -250,7 +250,7 @@ export default function OrdersScreen({ navigation }) {
           <StatusBadge status={item.status} />
         </View>
         <MedicationsPreview items={item.items} />
-        <Text style={styles.orderSub}>Patient: {item.patientIdentifier || 'N/A'}</Text>
+        <Text style={styles.orderSub}>Name: {item.name || 'N/A'}</Text>
         <Text style={styles.orderSub}>Total: ₦{item.totalPrice?.toLocaleString() || '0'}</Text>
         <Text style={styles.orderSub}>Date: {new Date(item.createdAt).toLocaleDateString()}</Text>
       </View>
