@@ -15,9 +15,9 @@ const STAT_CARDS = [
 
 // Mock recent orders (replace with real API call if needed)
 const MOCK_RECENT_ORDERS = [
-  { id: 1234, status: 'confirmed', patient: 'John Doe', total: 5000, createdAt: new Date(), badge: '#F59E42', patientIdentifier: 'JD001' },
-  { id: 1235, status: 'ready_for_pickup', patient: 'Jane Smith', total: 12000, createdAt: new Date(), badge: '#225F91', patientIdentifier: 'JS002' },
-  { id: 1236, status: 'delivered', patient: 'Sam Lee', total: 8000, createdAt: new Date(), badge: '#16A34A', patientIdentifier: 'SL003' },
+  { id: 1234, status: 'confirmed', patient: 'John Doe', total: 5000, createdAt: new Date(), badge: '#F59E42', userIdentifier: 'JD001' },
+  { id: 1235, status: 'ready_for_pickup', patient: 'Jane Smith', total: 12000, createdAt: new Date(), badge: '#225F91', userIdentifier: 'JS002' },
+  { id: 1236, status: 'delivered', patient: 'Sam Lee', total: 8000, createdAt: new Date(), badge: '#16A34A', userIdentifier: 'SL003' },
 ];
 
 const STATUS_LABELS = {

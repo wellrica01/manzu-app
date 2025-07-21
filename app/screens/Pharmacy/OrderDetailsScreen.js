@@ -93,7 +93,7 @@ export default function OrderDetailsScreen() {
             <StatusBadge status={order.status} />
           </View>
           <Text style={styles.label}>Patient:</Text>
-          <Text style={styles.value}>{order.patientIdentifier || 'N/A'}</Text>
+          <Text style={styles.value}>{order.userIdentifier || 'N/A'}</Text>
           <Text style={styles.label}>Date:</Text>
           <Text style={styles.value}>{new Date(order.createdAt).toLocaleString()}</Text>
           <Text style={styles.label}>Delivery Method:</Text>

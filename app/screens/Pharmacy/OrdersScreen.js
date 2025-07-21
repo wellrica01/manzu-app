@@ -235,7 +235,7 @@ export default function OrdersScreen({ navigation }) {
     const q = search.toLowerCase();
     const matchesSearch = (
       order.id.toString().includes(q) ||
-      (order.patientIdentifier && order.patientIdentifier.toLowerCase().includes(q)) ||
+      (order.userIdentifier && order.userIdentifier.toLowerCase().includes(q)) ||
       (order.items && order.items.some(i => i.medication?.name?.toLowerCase().includes(q)))
     );
     const matchesStatus = statusFilter === 'all' ? true : order.status === statusFilter;
