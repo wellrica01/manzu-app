@@ -9,10 +9,55 @@ export default function AnalyticsScreen() {
     <LinearGradient colors={['#1ABA7F', '#225F91']} style={styles.gradientBg}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
+          <Ionicons name="stats-chart-outline" size={32} color="#fff" style={{ marginRight: 12 }} />
           <Text style={styles.title}>Analytics</Text>
           <Text style={styles.subtitle}>View pharmacy insights and performance.</Text>
         </View>
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* PoS Sales Summary */}
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <Ionicons name="storefront" size={24} color="#0EA5E9" />
+              <Text style={styles.chartTitle}>PoS Sales Summary</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ color: '#225F91', fontWeight: '600', fontSize: 15 }}>Today</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 22, color: '#0EA5E9', marginTop: 2 }}>₦--</Text>
+                <Text style={{ color: '#888', fontSize: 13 }}>-- sales</Text>
+              </View>
+              <View style={{ width: 1, backgroundColor: '#e0e7ef', marginHorizontal: 16 }} />
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ color: '#225F91', fontWeight: '600', fontSize: 15 }}>This Week</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 22, color: '#0EA5E9', marginTop: 2 }}>₦--</Text>
+                <Text style={{ color: '#888', fontSize: 13 }}>-- sales</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* PoS Sales Trend */}
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <Ionicons name="trending-up" size={24} color="#1ABA7F" />
+              <Text style={styles.chartTitle}>PoS Sales Trend</Text>
+            </View>
+            <View style={styles.chartPlaceholder}>
+              <Text style={styles.chartText}>Sales chart coming soon...</Text>
+            </View>
+          </View>
+
+          {/* Payment Method Breakdown */}
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <Ionicons name="card" size={24} color="#16A34A" />
+              <Text style={styles.chartTitle}>Payment Method Breakdown</Text>
+            </View>
+            <View style={styles.chartPlaceholder}>
+              <Text style={styles.chartText}>Breakdown coming soon...</Text>
+            </View>
+          </View>
+
+          {/* Existing analytics cards */}
           <View style={styles.chartCard}>
             <View style={styles.chartHeader}>
               <Ionicons name="trending-up" size={24} color="#1ABA7F" />
@@ -51,7 +96,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   header: { marginTop: 16, marginBottom: 8, alignItems: 'center' },
   title: { fontSize: 24, fontWeight: 'bold', color: '#fff', textAlign: 'center', textShadowColor: 'rgba(34,95,145,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
-  subtitle: { fontSize: 15, color: '#fff', textAlign: 'center', marginTop: 6, textShadowColor: 'rgba(34,95,145,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  subtitle: { fontSize: 15, color: '#fff', textAlign: 'center', marginTop: 6, marginBottom: 16, textShadowColor: 'rgba(34,95,145,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 32 },
   chartCard: { 
     backgroundColor: 'rgba(255,255,255,0.97)', 

@@ -7,36 +7,29 @@ import { apiRequest } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 
 const STAT_CARDS = [
-  { key: 'ordersToday', label: 'Orders Today', icon: 'cart', color: '#1ABA7F' },
-  { key: 'pendingOrders', label: 'Pending Orders', icon: 'time', color: '#F59E42' }, // This counts 'confirmed' orders
-  { key: 'inventoryAlerts', label: 'Low Stock', icon: 'alert-circle', color: '#DC2626' },
-  { key: 'revenueToday', label: 'Revenue Today', icon: 'cash', color: '#225F91' },
+  { key: 'ordersAndPoS', labelLeft: 'Orders Today', labelRight: 'PoS Sales Today', iconLeft: 'cart', iconRight: 'storefront', colorLeft: '#1ABA7F', colorRight: '#0EA5E9' },
+  { key: 'revenue', labelTop: 'Online Revenue', labelBottom: 'PoS Revenue', iconTop: 'cash', iconBottom: 'wallet', colorTop: '#225F91', colorBottom: '#16A34A' },
+  { key: 'pendingAndStock', labelLeft: 'Pending Orders', labelRight: 'Low Stock', iconLeft: 'time', iconRight: 'alert-circle', colorLeft: '#F59E42', colorRight: '#DC2626' },
 ];
 
-// Mock recent orders (replace with real API call if needed)
-const MOCK_RECENT_ORDERS = [
-  { id: 1234, status: 'confirmed', patient: 'John Doe', total: 5000, createdAt: new Date(), badge: '#F59E42', userIdentifier: 'JD001' },
-  { id: 1235, status: 'ready_for_pickup', patient: 'Jane Smith', total: 12000, createdAt: new Date(), badge: '#225F91', userIdentifier: 'JS002' },
-  { id: 1236, status: 'delivered', patient: 'Sam Lee', total: 8000, createdAt: new Date(), badge: '#16A34A', userIdentifier: 'SL003' },
-];
 
 const STATUS_LABELS = {
-  confirmed: 'Pending', // Backend: confirmed, Frontend: pending
-  processing: 'Processing',
-  ready_for_pickup: 'Ready',
-  shipped: 'Shipped',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  completed: 'Completed',
+  CONFIRMED: 'Pending', // Backend: confirmed, Frontend: pending
+  PROCESSING: 'Processing',
+  READY_FOR_PICKUP: 'Ready',
+  SHIPPED: 'Shipped',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  COMPLETED: 'Completed',
 };
 const STATUS_COLORS = {
-  confirmed: '#F59E42', // Orange for pending (confirmed)
-  processing: '#1ABA7F',
-  ready_for_pickup: '#225F91',
-  shipped: '#8B5CF6',
-  delivered: '#16A34A',
-  cancelled: '#DC2626',
-  completed: '#059669',
+  CONFIRMED: '#F59E42', // Orange for pending (confirmed)
+  PROCESSING: '#1ABA7F',
+  READY_FOR_PICKUP: '#225F91',
+  SHIPPED: '#8B5CF6',
+  DELIVERED: '#16A34A',
+  CANCELLED: '#DC2626',
+  COMPLETED: '#059669',
 };
 
 export default function DashboardScreen({ navigation }) {
@@ -47,6 +40,8 @@ export default function DashboardScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [showOnlineRevenue, setShowOnlineRevenue] = useState(true);
+  const [showPosRevenue, setShowPosRevenue] = useState(true);
 
   const fetchDashboard = async () => {
     setError('');
@@ -93,25 +88,96 @@ export default function DashboardScreen({ navigation }) {
   // Render stat cards
   const renderStatCards = () => (
     <View style={styles.cardsGrid}>
-      {STAT_CARDS.map((card, idx) => (
-        <Animated.View
-          key={card.key}
-          style={[
-            styles.card,
-            { backgroundColor: 'rgba(255,255,255,0.97)' },
-            { transform: [{ scale: cardAnim }] },
-            { shadowColor: card.color },
-          ]}
-        >
-          <View style={[styles.cardIcon, { backgroundColor: card.color + '22' }]}> 
-            <Ionicons name={card.icon} size={28} color={card.color} />
+      {/* Orders Today & PoS Sales Today (columns) */}
+      <Animated.View
+        key="ordersAndPoS"
+        style={[
+          styles.card,
+          { backgroundColor: 'rgba(255,255,255,0.98)' },
+          { transform: [{ scale: cardAnim }] },
+          { shadowColor: '#1ABA7F' },
+          { minWidth: 340, flexBasis: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 32, marginHorizontal: 8, marginVertical: 10 },
+        ]}
+      >
+        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
+          <Ionicons name="cart" size={32} color="#16A34A" style={{ marginBottom: 8 }} />
+          <Text style={styles.cardLabelOrders}>Orders Today</Text>
+          <Text style={[styles.cardValue, { color: '#16A34A' }]}>{data ? data.ordersToday : '--'}</Text>
+        </View>
+        <View style={{ width: 1, backgroundColor: '#e0e7ef', height: 56, marginHorizontal: 24 }} />
+        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
+          <Ionicons name="storefront" size={32} color="#16A34A" style={{ marginBottom: 8 }} />
+          <Text style={styles.cardLabelPoS}>PoS Sales Today</Text>
+          <Text style={[styles.cardValue, { color: '#16A34A' }]}>{data ? data.posSalesToday : '--'}</Text>
+        </View>
+      </Animated.View>
+      {/* Revenue Card (rows, centered, with separator and eye icon) */}
+      <Animated.View
+        key="revenue"
+        style={[
+          styles.card,
+          { backgroundColor: 'rgba(255,255,255,0.98)' },
+          { transform: [{ scale: cardAnim }] },
+          { shadowColor: '#225F91' },
+          { minWidth: 340, flexBasis: '100%', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, marginHorizontal: 8, marginVertical: 10 },
+        ]}
+      >
+        <View style={styles.revenueRow}>
+          <Ionicons name="cash" size={28} color="#16A34A" />
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={styles.revenueLabelOrders}>Online Revenue</Text>
           </View>
-          <Text style={styles.cardLabel}>{card.label}</Text>
-          <Text style={[styles.cardValue, { color: card.color }]}> 
-            {card.key === 'revenueToday' && data ? `₦${data[card.key]?.toLocaleString()}` : data ? data[card.key] : '--'}
-          </Text>
-        </Animated.View>
-      ))}
+          <Ionicons
+            name={showOnlineRevenue ? 'eye' : 'eye-off'}
+            size={22}
+            color="#16A34A"
+            onPress={() => setShowOnlineRevenue(v => !v)}
+          />
+        </View>
+        <Text style={[styles.cardValue, { color: '#16A34A', marginBottom: 10, textAlign: 'center' }]}> 
+          {showOnlineRevenue ? (data ? `₦${data.revenueToday?.toLocaleString()}` : '--') : '••••••'}
+        </Text>
+        {/* Horizontal separator */}
+        <View style={{ width: 120, height: 1, backgroundColor: '#e0e7ef', marginVertical: 6, alignSelf: 'center' }} />
+        <View style={styles.revenueRow}>
+          <Ionicons name="wallet" size={28} color="#16A34A" />
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={styles.revenueLabelPoS}>PoS Revenue</Text>
+          </View>
+          <Ionicons
+            name={showPosRevenue ? 'eye' : 'eye-off'}
+            size={22}
+            color="#16A34A"
+            onPress={() => setShowPosRevenue(v => !v)}
+          />
+        </View>
+        <Text style={[styles.cardValue, { color: '#16A34A', textAlign: 'center' }]}> 
+          {showPosRevenue ? (data ? `₦${data.posRevenueToday?.toLocaleString()}` : '--') : '••••••'}
+        </Text>
+      </Animated.View>
+      {/* Pending Orders & Low Stock (columns) */}
+      <Animated.View
+        key="pendingAndStock"
+        style={[
+          styles.card,
+          { backgroundColor: 'rgba(255,255,255,0.98)' },
+          { transform: [{ scale: cardAnim }] },
+          { shadowColor: '#F59E42' },
+          { minWidth: 340, flexBasis: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 32, marginHorizontal: 8, marginVertical: 10 },
+        ]}
+      >
+        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
+          <Ionicons name="time" size={32} color="#F59E42" style={{ marginBottom: 8 }} />
+          <Text style={styles.cardLabel}>Pending Orders</Text>
+          <Text style={[styles.cardValue, { color: '#F59E42' }]}>{data ? data.pendingOrders : '--'}</Text>
+        </View>
+        <View style={{ width: 1, backgroundColor: '#e0e7ef', height: 56, marginHorizontal: 24 }} />
+        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
+          <Ionicons name="alert-circle" size={32} color="#DC2626" style={{ marginBottom: 8 }} />
+          <Text style={styles.cardLabel}>Low Stock</Text>
+          <Text style={[styles.cardValue, { color: '#DC2626' }]}>{data ? data.inventoryAlerts : '--'}</Text>
+        </View>
+      </Animated.View>
     </View>
   );
 
@@ -145,7 +211,7 @@ export default function DashboardScreen({ navigation }) {
               <Text style={styles.statusText}>{STATUS_LABELS[item.status] || item.status}</Text>
             </View>
             <Text style={styles.recentOrderId}>Order #{item.id}</Text>
-            <Text style={styles.recentOrderPatient}>{item.name || 'N/A'}</Text>
+            <Text style={styles.recentOrderUser}>{item.name || 'N/A'}</Text>
             <Text style={styles.recentOrderTotal}>₦{item.totalPrice?.toLocaleString() ?? '--'}</Text>
             <Text style={styles.recentOrderDate}>{item.createdAt instanceof Date && !isNaN(item.createdAt) ? item.createdAt.toLocaleDateString() : '--'}</Text>
           </TouchableOpacity>
@@ -197,21 +263,66 @@ export default function DashboardScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   gradientBg: { flex: 1 },
-  safeArea: { flex: 1 },
-  scrollContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingVertical: 32, paddingHorizontal: 8 },
-  header: { marginBottom: 12, alignItems: 'center', width: '100%' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', marginBottom: 12, paddingHorizontal: 8 },
+  safeArea: { flex: 1, paddingHorizontal: 8 }, // Add horizontal padding for dashboard edge
+  scrollContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingVertical: 36, paddingHorizontal: 8 },
+  header: { marginBottom: 16, alignItems: 'center', width: '100%' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', marginBottom: 16, paddingHorizontal: 8 },
   headerText: { flex: 1 },
   pharmacyNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   pharmacyName: { fontSize: 28, fontWeight: 'bold', color: '#fff', textAlign: 'left', textShadowColor: 'rgba(34,95,145,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
   subtitle: { fontSize: 16, color: '#fff', textAlign: 'left', marginTop: 6, textShadowColor: 'rgba(34,95,145,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   notificationBtn: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 10, marginLeft: 16 },
   // Cards
-  cardsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'stretch', gap: 16, marginBottom: 32, width: '100%', maxWidth: 420 },
-  card: { borderRadius: 18, padding: 20, margin: 8, minWidth: 150, flexBasis: '45%', flexGrow: 1, alignItems: 'center', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
-  cardIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  cardLabel: { color: '#225F91', fontWeight: '600', fontSize: 15, marginBottom: 6 },
-  cardValue: { fontWeight: 'bold', fontSize: 28 },
+  cardsGrid: { flexDirection: 'column', alignItems: 'center', gap: 0, marginBottom: 36, width: '100%', maxWidth: 520 },
+  card: {
+    borderRadius: 22,
+    paddingVertical: 18,
+    marginVertical: 10,
+    minWidth: 340,
+    alignItems: 'center',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+    backgroundColor: 'rgba(255,255,255,0.98)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,95,145,0.07)',
+  },
+  cardLabel: {
+    color: '#225F91',
+    fontWeight: '500',
+    fontSize: 15,
+    marginBottom: 6,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+    opacity: 0.85,
+  },
+  cardLabelOrders: {
+    color: '#225F91',
+    fontWeight: '500',
+    fontSize: 15,
+    marginBottom: 6,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+    opacity: 0.85,
+  },
+  cardLabelPoS: {
+    color: '#2563EB',
+    fontWeight: '500',
+    fontSize: 15,
+    marginBottom: 6,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+    opacity: 0.85,
+  },
+  cardValue: {
+    fontWeight: 'bold',
+    fontSize: 34,
+    marginBottom: 2,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    fontVariant: ['tabular-nums'],
+  },
   // Actions
   actionsRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 8, marginBottom: 24 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1ABA7F', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 24, marginHorizontal: 8, shadowColor: '#225F91', shadowOpacity: 0.13, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
@@ -226,8 +337,33 @@ const styles = StyleSheet.create({
   statusBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 10, alignSelf: 'flex-start', marginBottom: 6 },
   statusText: { color: '#fff', fontWeight: 'bold', fontSize: 13, textTransform: 'capitalize' },
   recentOrderId: { color: '#225F91', fontWeight: 'bold', fontSize: 15, marginBottom: 2 },
-  recentOrderPatient: { color: '#1ABA7F', fontSize: 14, marginBottom: 2 },
+  recentOrderUser: { color: '#1ABA7F', fontSize: 14, marginBottom: 2 },
   recentOrderTotal: { color: '#4B5563', fontSize: 14, marginBottom: 2 },
   recentOrderDate: { color: '#9CA3AF', fontSize: 12 },
   error: { color: '#fff', backgroundColor: 'rgba(220,53,69,0.85)', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 12, textAlign: 'center', fontWeight: 'bold', fontSize: 15, marginTop: 24 },
+  revenueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginBottom: 6,
+    minHeight: 32,
+  },
+
+  // Remove leftIcon and rightIcon styles
+  
+  revenueLabelOrders: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#225F91',
+    textAlign: 'center',
+    opacity: 0.85,
+  },
+  revenueLabelPoS: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#2563EB',
+    textAlign: 'center',
+    opacity: 0.85,
+  },
 }); 

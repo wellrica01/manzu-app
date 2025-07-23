@@ -143,24 +143,30 @@ const NewSaleScreen = () => {
             {inventoryLoading ? (
               <ActivityIndicator size="large" color="#1ABA7F" style={{ marginVertical: 32 }} />
             ) : (
-              <FlatList
-                data={filteredMeds}
-                keyExtractor={item => (item.medicationId || item.id).toString()}
-                renderItem={({ item }) => (
-                  <View style={styles.medRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.medName}>{item.name}</Text>
-                      <Text style={styles.medPrice}>₦{item.price} <Text style={styles.stockLabel}>| Stock: {item.stock}</Text></Text>
+              search.trim() === '' ? (
+                <Text style={{ color: '#888', textAlign: 'center', marginVertical: 16 }}>
+                  Start typing to search for medications.
+                </Text>
+              ) : (
+                <FlatList
+                  data={filteredMeds}
+                  keyExtractor={item => (item.medicationId || item.id).toString()}
+                  renderItem={({ item }) => (
+                    <View style={styles.medRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.medName}>{item.displayName}</Text>
+                        <Text style={styles.medPrice}>₦{item.price} <Text style={styles.stockLabel}>| Stock: {item.stock}</Text></Text>
+                      </View>
+                      <TouchableOpacity style={styles.addBtn} onPress={() => addToCart(item)}>
+                        <Ionicons name="cart" size={20} color="#fff" />
+                        <Text style={styles.addBtnText}>Add</Text>
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity style={styles.addBtn} onPress={() => addToCart(item)}>
-                      <Ionicons name="cart" size={20} color="#fff" />
-                      <Text style={styles.addBtnText}>Add</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                style={{ marginBottom: 8 }}
-                scrollEnabled={false}
-              />
+                  )}
+                  style={{ marginBottom: 8 }}
+                  scrollEnabled={false}
+                />
+              )
             )}
           </View>
           <View style={styles.sectionCard}>
@@ -248,23 +254,29 @@ const NewSaleScreen = () => {
 const styles = StyleSheet.create({
   gradientBg: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: 0 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 24,
+  header: { 
+    marginTop: 16,
+    marginBottom: 8, 
+    alignItems: 'center' 
+  },
+  title: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: '#fff', 
+    textAlign: 'center', 
+    textShadowColor: 'rgba(34,95,145,0.4)', 
+    textShadowOffset: { width: 0, height: 2 }, 
+    textShadowRadius: 6 
+  },
+  subtitle: { 
+    fontSize: 15, 
+    color: '#fff', 
+    textAlign: 'center', 
+    marginTop: 6,
     marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 2,
-  },
-  subtitle: {
-    color: '#e0f2f1',
-    fontSize: 15,
-    fontWeight: '500',
+    textShadowColor: 'rgba(34,95,145,0.2)', 
+    textShadowOffset: { width: 0, height: 1 }, 
+    textShadowRadius: 3 
   },
   sectionCard: {
     backgroundColor: 'rgba(255,255,255,0.97)',

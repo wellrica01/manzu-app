@@ -1,7 +1,7 @@
 // Placeholder for API service
 export async function apiRequest(endpoint, method = 'GET', body, token) {
   // Use your computer's local IP and port 5000 for Expo/physical device testing
-  const BASE_URL = 'http://192.168.72.67:5000/api'; // <-- Replace with your actual IP if needed
+  const BASE_URL = 'http://192.168.132.67:5000/api'; // <-- Replace with your actual IP if needed
   const headers = {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),

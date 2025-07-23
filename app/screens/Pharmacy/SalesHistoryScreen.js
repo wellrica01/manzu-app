@@ -79,23 +79,29 @@ const SalesHistoryScreen = () => {
 const styles = StyleSheet.create({
   gradientBg: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: 0 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 24,
+  header: { 
+    marginTop: 16,
+    marginBottom: 8, 
+    alignItems: 'center' 
+  },
+  title: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: '#fff', 
+    textAlign: 'center', 
+    textShadowColor: 'rgba(34,95,145,0.4)', 
+    textShadowOffset: { width: 0, height: 2 }, 
+    textShadowRadius: 6 
+  },
+  subtitle: { 
+    fontSize: 15, 
+    color: '#fff', 
+    textAlign: 'center', 
+    marginTop: 6, 
     marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 2,
-  },
-  subtitle: {
-    color: '#e0f2f1',
-    fontSize: 15,
-    fontWeight: '500',
+    textShadowColor: 'rgba(34,95,145,0.2)', 
+    textShadowOffset: { width: 0, height: 1 }, 
+    textShadowRadius: 3 
   },
   saleCard: {
     backgroundColor: 'rgba(255,255,255,0.97)',

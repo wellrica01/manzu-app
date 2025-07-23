@@ -7,26 +7,26 @@ import { apiRequest } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { SwipeListView } from 'react-native-swipe-list-view';
 
-const STATUS_ORDER = ['confirmed', 'processing', 'ready_for_pickup', 'shipped', 'delivered', 'cancelled', 'completed'];
+const STATUS_ORDER = ['CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'COMPLETED'];
 const STATUS_LABELS = {
-  all: 'All',
-  confirmed: 'Pending', // Backend: confirmed, Frontend: pending
-  processing: 'Processing',
-  ready_for_pickup: 'Ready for Pickup',
-  shipped: 'Shipped',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  completed: 'Completed',
+  ALL: 'All',
+  CONFIRMED: 'Pending', // Backend: confirmed, Frontend: pending
+  PROCESSING: 'Processing',
+  READY_FOR_PICKUP: 'Ready for Pickup',
+  SHIPPED: 'Shipped',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  COMPLETED: 'Completed',
 };
 const STATUS_COLORS = {
-  confirmed: '#F59E42', // Orange for pending (confirmed)
-  processing: '#1ABA7F',
-  ready_for_pickup: '#225F91',
-  shipped: '#8B5CF6',
-  delivered: '#16A34A',
-  cancelled: '#DC2626',
-  completed: '#059669',
-  all: '#225F91',
+  CONFIRMED: '#F59E42', // Orange for pending (confirmed)
+  PROCESSING: '#1ABA7F',
+  READY_FOR_PICKUP: '#225F91',
+  SHIPPED: '#8B5CF6',
+  DELIVERED: '#16A34A',
+  CANCELLED: '#DC2626',
+  COMPLETED: '#059669',
+  ALL: '#225F91',
 };
 
 function StatusBadge({ status }) {
@@ -91,11 +91,12 @@ export default function OrdersScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const PAGE_SIZE = 20;
+  const [showAllFilters, setShowAllFilters] = useState(false);
 
   // Fetch paginated orders
   const fetchOrders = async (opts = {}) => {
@@ -155,7 +156,7 @@ export default function OrdersScreen({ navigation }) {
   // Swipe action handlers
   const handleMarkProcessing = async (orderId) => {
     try {
-      await apiRequest(`/pharmacy/orders/${orderId}/status`, 'PATCH', { status: 'processing' }, token);
+      await apiRequest(`/pharmacy/orders/${orderId}/status`, 'PATCH', { status: 'PROCESSING' }, token);
       fetchOrders();
     } catch (err) {
       setError(err.message);
@@ -164,7 +165,7 @@ export default function OrdersScreen({ navigation }) {
 
   const handleMarkReady = async (orderId) => {
     try {
-      await apiRequest(`/pharmacy/orders/${orderId}/status`, 'PATCH', { status: 'ready_for_pickup' }, token);
+      await apiRequest(`/pharmacy/orders/${orderId}/status`, 'PATCH', { status: 'READY_FOR_PICKUP' }, token);
       fetchOrders();
     } catch (err) {
       setError(err.message);
@@ -173,7 +174,7 @@ export default function OrdersScreen({ navigation }) {
 
   const handleCancel = async (orderId) => {
     try {
-      await apiRequest(`/pharmacy/orders/${orderId}/status`, 'PATCH', { status: 'cancelled' }, token);
+      await apiRequest(`/pharmacy/orders/${orderId}/status`, 'PATCH', { status: 'CANCELLED' }, token);
       fetchOrders();
     } catch (err) {
       setError(err.message);
@@ -187,9 +188,9 @@ export default function OrdersScreen({ navigation }) {
 
   // Swipe actions row
   const renderHiddenActions = ({ item }) => {
-    const canMarkProcessing = item.status === 'confirmed';
-    const canMarkReady = item.status === 'processing';
-    const canCancel = item.status !== 'delivered' && item.status !== 'cancelled' && item.status !== 'completed';
+    const canMarkProcessing = item.status === 'CONFIRMED';
+    const canMarkReady = item.status === 'PROCESSING';
+    const canCancel = item.status !== 'DELIVERED' && item.status !== 'CANCELLED' && item.status !== 'COMPLETED';
     return (
       <View style={styles.swipeActionsRow}>
         {canMarkProcessing && (
@@ -238,7 +239,7 @@ export default function OrdersScreen({ navigation }) {
       (order.userIdentifier && order.userIdentifier.toLowerCase().includes(q)) ||
       (order.items && order.items.some(i => i.medication?.name?.toLowerCase().includes(q)))
     );
-    const matchesStatus = statusFilter === 'all' ? true : order.status === statusFilter;
+    const matchesStatus = statusFilter === 'ALL' ? true : order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -266,11 +267,13 @@ export default function OrdersScreen({ navigation }) {
     <LinearGradient colors={['#1ABA7F', '#225F91']} style={styles.gradientBg}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
+          <Ionicons name="cart-outline" size={32} color="#fff" style={{ marginRight: 12 }} />
           <Text style={styles.title}>Orders</Text>
           <Text style={styles.subtitle}>Manage all your pharmacy orders here.</Text>
         </View>
         <View style={styles.filterRow}>
-          {['all', ...STATUS_ORDER].map(status => (
+          {/* Only show 'ALL', 'CONFIRMED', 'PROCESSING' by default, rest under 'More'/'Less' */}
+          {(['ALL', 'CONFIRMED', 'PROCESSING'].map(status => (
             <TouchableOpacity
               key={status}
               style={[styles.filterChip, statusFilter === status && { backgroundColor: STATUS_COLORS[status], borderColor: STATUS_COLORS[status] }]}
@@ -279,13 +282,32 @@ export default function OrdersScreen({ navigation }) {
             >
               <Text style={[styles.filterChipText, statusFilter === status && { color: '#fff' }]}>{STATUS_LABELS[status]}</Text>
             </TouchableOpacity>
-          ))}
+          )))}
+          {showAllFilters && (
+            STATUS_ORDER.filter(status => !['CONFIRMED', 'PROCESSING'].includes(status)).map(status => (
+              <TouchableOpacity
+                key={status}
+                style={[styles.filterChip, statusFilter === status && { backgroundColor: STATUS_COLORS[status], borderColor: STATUS_COLORS[status] }]}
+                onPress={() => setStatusFilter(status)}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.filterChipText, statusFilter === status && { color: '#fff' }]}>{STATUS_LABELS[status]}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+          <TouchableOpacity
+            style={styles.filterChip}
+            onPress={() => setShowAllFilters(v => !v)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.filterChipText}>{showAllFilters ? 'Less' : 'More'}</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.searchRow}>
           <Ionicons name="search" size={20} color="#225F91" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by patient, order #, or medication"
+            placeholder="Search by user, order #, or medication"
             placeholderTextColor="#7FB7A3"
             value={search}
             onChangeText={setSearch}

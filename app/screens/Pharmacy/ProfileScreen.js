@@ -120,6 +120,7 @@ export default function ProfileScreen() {
     <LinearGradient colors={['#1ABA7F', '#225F91']} style={styles.gradientBg}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
+          <Ionicons name="person-outline" size={32} color="#fff" style={{ marginRight: 12 }} />
           <Text style={styles.title}>Profile</Text>
           <Text style={styles.subtitle}>Manage your pharmacy account.</Text>
         </View>

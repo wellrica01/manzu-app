@@ -9,23 +9,23 @@ import { apiRequest } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 
 const STATUS_COLORS = {
-  confirmed: '#F59E42', // Backend: confirmed, Frontend: pending
-  processing: '#1ABA7F',
-  ready_for_pickup: '#225F91',
-  shipped: '#8B5CF6',
-  delivered: '#16A34A',
-  cancelled: '#DC2626',
-  completed: '#059669',
+  CONFIRMED: '#F59E42', // Backend: confirmed, Frontend: pending
+  PROCESSING: '#1ABA7F',
+  READY_FOR_PICKUP: '#225F91',
+  SHIPPED: '#8B5CF6',
+  DELIVERED: '#16A34A',
+  CANCELLED: '#DC2626',
+  COMPLETED: '#059669',
 };
 
 const STATUS_LABELS = {
-  confirmed: 'Pending', // Backend: confirmed, Frontend: pending
-  processing: 'Processing',
-  ready_for_pickup: 'Ready for Pickup',
-  shipped: 'Shipped',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  completed: 'Completed',
+  CONFIRMED: 'Pending', // Backend: confirmed, Frontend: pending
+  PROCESSING: 'Processing',
+  READY_FOR_PICKUP: 'Ready for Pickup',
+  SHIPPED: 'Shipped',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  COMPLETED: 'Completed',
 };
 
 function StatusBadge({ status }) {
@@ -92,7 +92,7 @@ export default function OrderDetailsScreen() {
             <Text style={styles.title}>Order #{order.id}</Text>
             <StatusBadge status={order.status} />
           </View>
-          <Text style={styles.label}>Patient:</Text>
+          <Text style={styles.label}>User ID:</Text>
           <Text style={styles.value}>{order.userIdentifier || 'N/A'}</Text>
           <Text style={styles.label}>Date:</Text>
           <Text style={styles.value}>{new Date(order.createdAt).toLocaleString()}</Text>
@@ -124,23 +124,23 @@ export default function OrderDetailsScreen() {
             <TouchableOpacity style={styles.actionBtn} onPress={refreshOrder} disabled={loading || actionLoading}>
               <Text style={styles.actionText}>{loading ? 'Refreshing...' : 'Refresh'}</Text>
             </TouchableOpacity>
-            {order.status === 'confirmed' && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus('processing')} disabled={actionLoading}>
+            {order.status === 'CONFIRMED' && (
+              <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus('PROCESSING')} disabled={actionLoading}>
                 <Text style={styles.actionText}>Mark as Processing</Text>
               </TouchableOpacity>
             )}
-            {order.status === 'processing' && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus('ready_for_pickup')} disabled={actionLoading}>
+            {order.status === 'PROCESSING' && (
+              <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus('READY_FOR_PICKUP')} disabled={actionLoading}>
                 <Text style={styles.actionText}>Mark as Ready</Text>
               </TouchableOpacity>
             )}
-            {order.status === 'ready_for_pickup' && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus('delivered')} disabled={actionLoading}>
+            {order.status === 'READY_FOR_PICKUP' && (
+              <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus('DELIVERED')} disabled={actionLoading}>
                 <Text style={styles.actionText}>Mark as Delivered</Text>
               </TouchableOpacity>
             )}
-            {order.status !== 'cancelled' && order.status !== 'delivered' && order.status !== 'completed' && (
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#DC2626' }]} onPress={() => updateStatus('cancelled')} disabled={actionLoading}>
+            {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && order.status !== 'COMPLETED' && (
+              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#DC2626' }]} onPress={() => updateStatus('CANCELLED')} disabled={actionLoading}>
                 <Text style={styles.actionText}>Cancel Order</Text>
               </TouchableOpacity>
             )}

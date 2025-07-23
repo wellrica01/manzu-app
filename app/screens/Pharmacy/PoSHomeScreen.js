@@ -58,38 +58,44 @@ const PoSHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   gradientBg: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: 0 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    marginBottom: 16,
+  header: { 
+    marginTop: 16,
+    marginBottom: 8, 
+    alignItems: 'center' 
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 2,
+  title: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: '#fff', 
+    textAlign: 'center', 
+    textShadowColor: 'rgba(34,95,145,0.4)', 
+    textShadowOffset: { width: 0, height: 2 }, 
+    textShadowRadius: 6 
   },
-  subtitle: {
-    color: '#e0f2f1',
-    fontSize: 15,
-    fontWeight: '500',
+  subtitle: { 
+    fontSize: 15, 
+    color: '#fff', 
+    textAlign: 'center', 
+    marginTop: 6, 
+    textShadowColor: 'rgba(34,95,145,0.2)', 
+    textShadowOffset: { width: 0, height: 1 }, 
+    textShadowRadius: 3 
   },
   actionsGrid: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'column', // changed from 'row' to 'column'
     justifyContent: 'center',
     alignItems: 'center',
     gap: 24,
     paddingHorizontal: 24,
   },
   actionCard: {
-    flex: 1,
+    width: '100%', // make card take full width of container
+    maxWidth: 400, // optional: limit max width for better appearance on tablets
     backgroundColor: 'rgba(255,255,255,0.97)',
     borderRadius: 18,
     padding: 24,
-    marginHorizontal: 8,
+    marginVertical: 8, // changed from marginHorizontal to marginVertical
     alignItems: 'center',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.13,

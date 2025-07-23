@@ -149,7 +149,7 @@ export default function InventoryScreen() {
         activeOpacity={0.85}
       >
         <View style={{ flex: 1 }}>
-          <Text style={styles.medName}>{item.name}</Text>
+          <Text style={styles.medName}>{item.displayName}</Text>
           <Text style={styles.medInfo}>Stock: <Text style={isLowStock ? styles.lowStock : styles.stock}>{item.stock}</Text></Text>
           <Text style={styles.medInfo}>Price: ₦{item.price?.toLocaleString() || '0'}</Text>
           <Text style={styles.medInfo}>Expiry: <Text style={isExpired ? styles.expired : styles.expiry}>{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : 'N/A'}</Text></Text>
@@ -278,6 +278,7 @@ export default function InventoryScreen() {
     <LinearGradient colors={['#1ABA7F', '#225F91']} style={styles.gradientBg}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
+        <Ionicons name="cube-outline" size={32} color="#fff" style={{ marginRight: 12 }} />
           <Text style={styles.title}>Inventory</Text>
           <Text style={styles.subtitle}>Manage your pharmacy inventory here.</Text>
         </View>
