@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
+import React, { useState, useContext } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  Modal,
+  Image,
+  ImageBackground
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { apiRequest } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
+
 
 const STATUS_COLORS = {
   CONFIRMED: '#F59E42', // Backend: confirmed, Frontend: pending
@@ -31,7 +42,7 @@ const STATUS_LABELS = {
 function StatusBadge({ status }) {
   const displayStatus = STATUS_LABELS[status] || status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   return (
-    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[status] || '#888' }]}> 
+    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[status] || '#888' }]}>
       <Text style={styles.statusText}>{displayStatus}</Text>
     </View>
   );
@@ -43,8 +54,10 @@ export default function OrderDetailsScreen() {
   const { token } = useContext(AuthContext);
   const [order, setOrder] = useState(route.params?.order || null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const refreshOrder = async () => {
     setError('');
@@ -74,9 +87,23 @@ export default function OrderDetailsScreen() {
     }
   };
 
+  const openPrescriptionModal = () => {
+    setImageError(false); // Reset image error state
+    setModalVisible(true);
+  };
+
+  const getImageUri = () => {
+    if (!order.prescription?.fileUrl) return null;
+    return order.prescription.fileUrl.startsWith('http')
+      ? order.prescription.fileUrl
+      : `${process.env.EXPO_PUBLIC_API_URL || 'https://manzu-backend.onrender.com'}/${order.prescription.fileUrl.replace(/^\/+/, '')}`;
+  };
+
   if (!order) {
     return (
-      <View style={styles.centered}><Text style={styles.error}>Order not found.</Text></View>
+      <View style={styles.centered}>
+        <Text style={styles.error}>Order not found.</Text>
+      </View>
     );
   }
 
@@ -98,54 +125,111 @@ export default function OrderDetailsScreen() {
           <Text style={styles.value}>{new Date(order.createdAt).toLocaleString()}</Text>
           <Text style={styles.label}>Delivery Method:</Text>
           <Text style={styles.value}>{order.deliveryMethod || 'N/A'}</Text>
-          {order.address && <>
-            <Text style={styles.label}>Address:</Text>
-            <Text style={styles.value}>{order.address}</Text>
-          </>}
+          {order.address && (
+            <>
+              <Text style={styles.label}>Address:</Text>
+              <Text style={styles.value}>{order.address}</Text>
+            </>
+          )}
           <Text style={styles.label}>Medications:</Text>
           <View style={styles.medsList}>
-            {order.items && order.items.length > 0 ? order.items.map(item => (
-              <View key={item.id} style={styles.medRow}>
-                <Text style={styles.medName}>{item.medication?.name || 'Medication'}</Text>
-                <Text style={styles.medQty}>x{item.quantity}</Text>
-                <Text style={styles.medPrice}>₦{item.price?.toLocaleString() || '0'}</Text>
-              </View>
-            )) : <Text style={styles.value}>No medications</Text>}
+            {order.items && order.items.length > 0 ? (
+              order.items.map(item => (
+                <View key={item.id} style={styles.medRow}>
+                  <Text style={styles.medName}>{item.medication?.displayName || 'Medication'}</Text>
+                  <Text style={styles.medQty}>x{item.quantity}</Text>
+                  <Text style={styles.medPrice}>₦{item.price?.toLocaleString() || '0'}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.value}>No medications</Text>
+            )}
           </View>
           {order.prescription?.fileUrl && (
-            <TouchableOpacity style={styles.prescriptionBtn} onPress={() => Linking.openURL(order.prescription.fileUrl)}>
+            <TouchableOpacity style={styles.prescriptionBtn} onPress={openPrescriptionModal}>
               <Text style={styles.prescriptionText}>View Prescription</Text>
             </TouchableOpacity>
           )}
           <Text style={styles.label}>Total:</Text>
           <Text style={styles.total}>₦{order.totalPrice?.toLocaleString() || '0'}</Text>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error && <Text style={styles.error}>{error}</Text>}
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.actionBtn} onPress={refreshOrder} disabled={loading || actionLoading}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={refreshOrder}
+              disabled={loading || actionLoading}
+            >
               <Text style={styles.actionText}>{loading ? 'Refreshing...' : 'Refresh'}</Text>
             </TouchableOpacity>
             {order.status === 'CONFIRMED' && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus('PROCESSING')} disabled={actionLoading}>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => updateStatus('PROCESSING')}
+                disabled={actionLoading}
+              >
                 <Text style={styles.actionText}>Mark as Processing</Text>
               </TouchableOpacity>
             )}
             {order.status === 'PROCESSING' && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus('READY_FOR_PICKUP')} disabled={actionLoading}>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => updateStatus('READY_FOR_PICKUP')}
+                disabled={actionLoading}
+              >
                 <Text style={styles.actionText}>Mark as Ready</Text>
               </TouchableOpacity>
             )}
             {order.status === 'READY_FOR_PICKUP' && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus('DELIVERED')} disabled={actionLoading}>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => updateStatus('DELIVERED')}
+                disabled={actionLoading}
+              >
                 <Text style={styles.actionText}>Mark as Delivered</Text>
               </TouchableOpacity>
             )}
             {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && order.status !== 'COMPLETED' && (
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#DC2626' }]} onPress={() => updateStatus('CANCELLED')} disabled={actionLoading}>
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: '#DC2626' }]}
+                onPress={() => updateStatus('CANCELLED')}
+                disabled={actionLoading}
+              >
                 <Text style={styles.actionText}>Cancel Order</Text>
               </TouchableOpacity>
             )}
           </View>
         </ScrollView>
+        <Modal
+          visible={modalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <ImageBackground
+              source={imageError ? null : { uri: getImageUri() }}
+              style={styles.modalImage}
+              resizeMode="contain"
+              onError={(e) => {
+                console.log('Image load error:', e.nativeEvent.error, 'for URL:', getImageUri());
+                setImageError(true);
+              }}
+            >
+              {imageError && (
+                <View style={styles.fallbackContainer}>
+                  <Ionicons name="medical" size={50} color="#fff" />
+                  <Text style={styles.fallbackText}>Failed to load prescription image</Text>
+                </View>
+              )}
+            </ImageBackground>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Ionicons name="close" size={30} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -176,4 +260,40 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10, justifyContent: 'flex-start' },
   actionBtn: { backgroundColor: '#1ABA7F', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, marginVertical: 6, marginRight: 8, shadowColor: '#225F91', shadowOpacity: 0.13, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
   actionText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
-}); 
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalImage: {
+    width: '100%',
+    height: '80%',
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#1ABA7F',
+    overflow: 'hidden',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    backgroundColor: 'rgba(34,95,145,0.7)',
+    borderRadius: 20,
+    padding: 10,
+  },
+  fallbackContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34,95,145,0.5)',
+  },
+  fallbackText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+});

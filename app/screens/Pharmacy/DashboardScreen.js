@@ -88,6 +88,29 @@ export default function DashboardScreen({ navigation }) {
   // Render stat cards
   const renderStatCards = () => (
     <View style={styles.cardsGrid}>
+            {/* Pending Orders & Low Stock (columns) */}
+            <Animated.View
+        key="pendingAndStock"
+        style={[
+          styles.card,
+          { backgroundColor: 'rgba(255,255,255,0.98)' },
+          { transform: [{ scale: cardAnim }] },
+          { shadowColor: '#F59E42' },
+          { minWidth: 340, flexBasis: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 32, marginHorizontal: 8, marginVertical: 10 },
+        ]}
+      >
+        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
+          <Ionicons name="time" size={32} color="#F59E42" style={{ marginBottom: 8 }} />
+          <Text style={styles.cardLabel}>Pending Orders</Text>
+          <Text style={[styles.cardValue, { color: '#F59E42' }]}>{data ? data.pendingOrders : '--'}</Text>
+        </View>
+        <View style={{ width: 1, backgroundColor: '#e0e7ef', height: 56, marginHorizontal: 24 }} />
+        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
+          <Ionicons name="alert-circle" size={32} color="#DC2626" style={{ marginBottom: 8 }} />
+          <Text style={styles.cardLabel}>Low Stock</Text>
+          <Text style={[styles.cardValue, { color: '#DC2626' }]}>{data ? data.inventoryAlerts : '--'}</Text>
+        </View>
+      </Animated.View>
       {/* Orders Today & PoS Sales Today (columns) */}
       <Animated.View
         key="ordersAndPoS"
@@ -154,29 +177,6 @@ export default function DashboardScreen({ navigation }) {
         <Text style={[styles.cardValue, { color: '#16A34A', textAlign: 'center' }]}> 
           {showPosRevenue ? (data ? `₦${data.posRevenueToday?.toLocaleString()}` : '--') : '••••••'}
         </Text>
-      </Animated.View>
-      {/* Pending Orders & Low Stock (columns) */}
-      <Animated.View
-        key="pendingAndStock"
-        style={[
-          styles.card,
-          { backgroundColor: 'rgba(255,255,255,0.98)' },
-          { transform: [{ scale: cardAnim }] },
-          { shadowColor: '#F59E42' },
-          { minWidth: 340, flexBasis: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 32, marginHorizontal: 8, marginVertical: 10 },
-        ]}
-      >
-        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
-          <Ionicons name="time" size={32} color="#F59E42" style={{ marginBottom: 8 }} />
-          <Text style={styles.cardLabel}>Pending Orders</Text>
-          <Text style={[styles.cardValue, { color: '#F59E42' }]}>{data ? data.pendingOrders : '--'}</Text>
-        </View>
-        <View style={{ width: 1, backgroundColor: '#e0e7ef', height: 56, marginHorizontal: 24 }} />
-        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
-          <Ionicons name="alert-circle" size={32} color="#DC2626" style={{ marginBottom: 8 }} />
-          <Text style={styles.cardLabel}>Low Stock</Text>
-          <Text style={[styles.cardValue, { color: '#DC2626' }]}>{data ? data.inventoryAlerts : '--'}</Text>
-        </View>
       </Animated.View>
     </View>
   );

@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, SectionList, TouchableOpacity, RefreshControl, TextInput, Image, Animated, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, RefreshControl, TextInput, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../../context/AuthContext';
 import { apiRequest } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
-import { SwipeListView } from 'react-native-swipe-list-view';
 
 const STATUS_ORDER = ['CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'COMPLETED'];
 const STATUS_LABELS = {
@@ -45,18 +44,20 @@ function MedicationsPreview({ items }) {
 }
 
 function PrescriptionThumb({ prescription }) {
-  if (prescription?.fileUrl) {
-    return (
-      <Image source={{ uri: prescription.fileUrl.startsWith('http') ? prescription.fileUrl : `${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'}/${prescription.fileUrl}` }} style={styles.prescriptionThumb} />
-    );
+  if (!prescription?.fileUrl || typeof prescription.fileUrl !== 'string' || prescription.fileUrl.trim() === '') {
+    return null; // Render nothing if no valid prescription file exists
   }
   return (
-    <View style={styles.prescriptionIcon}><Ionicons name="document" size={20} color="#225F91" /></View>
+    <View style={styles.prescriptionThumbContainer} accessibilityLabel="Prescription available">
+      <View style={styles.prescriptionIconContainer}>
+        <Ionicons name="medical" size={20} color="#225F91" />
+        <Text style={styles.prescriptionLabel}>Rx</Text>
+      </View>
+    </View>
   );
 }
 
 function SkeletonCard() {
-  // Simple shimmer animation
   const shimmer = new Animated.Value(0);
   React.useEffect(() => {
     Animated.loop(
@@ -95,10 +96,9 @@ export default function OrdersScreen({ navigation }) {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const PAGE_SIZE = 20;
   const [showAllFilters, setShowAllFilters] = useState(false);
+  const PAGE_SIZE = 20;
 
-  // Fetch paginated orders
   const fetchOrders = async (opts = {}) => {
     setError('');
     const isRefresh = opts.refresh;
@@ -122,15 +122,12 @@ export default function OrdersScreen({ navigation }) {
     }
   };
 
-  // Initial fetch and when filters/search change
   useEffect(() => {
     setOrders([]);
     setPage(1);
     fetchOrders({ newFilter: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, statusFilter]);
 
-  // Fetch next page
   const loadMore = async () => {
     if (orders.length >= total || loadingMore) return;
     setLoadingMore(true);
@@ -153,85 +150,6 @@ export default function OrdersScreen({ navigation }) {
     fetchOrders({ refresh: true });
   };
 
-  // Swipe action handlers
-  const handleMarkProcessing = async (orderId) => {
-    try {
-      await apiRequest(`/pharmacy/orders/${orderId}/status`, 'PATCH', { status: 'PROCESSING' }, token);
-      fetchOrders();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleMarkReady = async (orderId) => {
-    try {
-      await apiRequest(`/pharmacy/orders/${orderId}/status`, 'PATCH', { status: 'READY_FOR_PICKUP' }, token);
-      fetchOrders();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleCancel = async (orderId) => {
-    try {
-      await apiRequest(`/pharmacy/orders/${orderId}/status`, 'PATCH', { status: 'CANCELLED' }, token);
-      fetchOrders();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleViewDetails = (orderId) => {
-    const order = orders.find(o => o.id === orderId);
-    navigation.navigate('OrderDetails', { order });
-  };
-
-  // Swipe actions row
-  const renderHiddenActions = ({ item }) => {
-    const canMarkProcessing = item.status === 'CONFIRMED';
-    const canMarkReady = item.status === 'PROCESSING';
-    const canCancel = item.status !== 'DELIVERED' && item.status !== 'CANCELLED' && item.status !== 'COMPLETED';
-    return (
-      <View style={styles.swipeActionsRow}>
-        {canMarkProcessing && (
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#1ABA7F' }]}
-            onPress={() => handleMarkProcessing(item.id)}
-          >
-            <Ionicons name="play" size={22} color="#fff" />
-            <Text style={styles.actionText}>Process</Text>
-          </TouchableOpacity>
-        )}
-        {canMarkReady && (
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#225F91' }]}
-            onPress={() => handleMarkReady(item.id)}
-          >
-            <Ionicons name="checkmark-done" size={22} color="#fff" />
-            <Text style={styles.actionText}>Ready</Text>
-          </TouchableOpacity>
-        )}
-        {canCancel && (
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#DC2626' }]}
-            onPress={() => handleCancel(item.id)}
-          >
-            <Ionicons name="close-circle" size={22} color="#fff" />
-            <Text style={styles.actionText}>Cancel</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]}
-          onPress={() => handleViewDetails(item.id)}
-        >
-          <Ionicons name="ellipsis-horizontal" size={22} color="#fff" />
-          <Text style={styles.actionText}>More</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  // Filter client-side for search/status (for now, ideally backend should support this)
   const filtered = orders.filter(order => {
     const q = search.toLowerCase();
     const matchesSearch = (
@@ -259,10 +177,6 @@ export default function OrdersScreen({ navigation }) {
     </TouchableOpacity>
   );
 
-  const renderSectionHeader = ({ section: { title } }) => (
-    <View style={styles.sectionHeader}><Text style={styles.sectionHeaderText}>{title}</Text></View>
-  );
-
   return (
     <LinearGradient colors={['#1ABA7F', '#225F91']} style={styles.gradientBg}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -272,7 +186,6 @@ export default function OrdersScreen({ navigation }) {
           <Text style={styles.subtitle}>Manage all your pharmacy orders here.</Text>
         </View>
         <View style={styles.filterRow}>
-          {/* Only show 'ALL', 'CONFIRMED', 'PROCESSING' by default, rest under 'More'/'Less' */}
           {(['ALL', 'CONFIRMED', 'PROCESSING'].map(status => (
             <TouchableOpacity
               key={status}
@@ -327,13 +240,10 @@ export default function OrdersScreen({ navigation }) {
             <Text style={styles.emptyText}>No orders found.</Text>
           </View>
         ) : (
-          <SwipeListView
+          <FlatList
             data={filtered}
             keyExtractor={item => item.id.toString()}
             renderItem={renderItem}
-            renderHiddenItem={renderHiddenActions}
-            rightOpenValue={-220}
-            disableRightSwipe
             contentContainerStyle={styles.listContent}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1ABA7F" />}
             onEndReached={loadMore}
@@ -362,16 +272,37 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, paddingHorizontal: 12, marginHorizontal: 16, marginBottom: 12, height: 44, shadowColor: '#1ABA7F', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   searchInput: { flex: 1, fontSize: 15, color: '#225F91', height: 44 },
   listContent: { paddingHorizontal: 8, paddingBottom: 32 },
-  sectionHeader: { backgroundColor: 'rgba(34,95,145,0.08)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, marginTop: 12, marginBottom: 4 },
-  sectionHeaderText: { color: '#225F91', fontWeight: 'bold', fontSize: 15, letterSpacing: 0.5 },
   orderCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 18, padding: 18, marginBottom: 14, shadowColor: '#1ABA7F', shadowOpacity: 0.13, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
   orderTitle: { color: '#225F91', fontWeight: 'bold', fontSize: 17, marginBottom: 2, marginRight: 8 },
   orderSub: { color: '#4B5563', fontSize: 14, marginBottom: 2 },
   medsPreview: { color: '#1ABA7F', fontWeight: '600', fontSize: 14, marginBottom: 2 },
   statusBadge: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 12, alignSelf: 'flex-start', marginLeft: 8 },
   statusText: { color: '#fff', fontWeight: 'bold', fontSize: 13, textTransform: 'capitalize' },
-  prescriptionThumb: { width: 36, height: 36, borderRadius: 8, marginLeft: 12, backgroundColor: '#E5F6F0' },
-  prescriptionIcon: { width: 36, height: 36, borderRadius: 8, marginLeft: 12, backgroundColor: '#E5F6F0', alignItems: 'center', justifyContent: 'center' },
+  prescriptionThumbContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    marginLeft: 12,
+    backgroundColor: '#E5F6F0',
+    shadowColor: '#1ABA7F',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 1,
+    borderColor: '#1ABA7F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prescriptionIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prescriptionLabel: {
+    fontSize: 10,
+    color: '#225F91',
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 60 },
   emptyText: { color: '#fff', fontSize: 18, fontWeight: '600', opacity: 0.7 },
   skeletonList: { width: '100%', paddingHorizontal: 8, marginTop: 24 },
@@ -385,10 +316,5 @@ const styles = StyleSheet.create({
   filterRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginHorizontal: 8, paddingVertical: 2, flexWrap: 'wrap' },
   filterChip: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderColor: '#E5F6F0', paddingHorizontal: 14, paddingVertical: 7, marginRight: 8, marginBottom: 6 },
   filterChipText: { color: '#225F91', fontWeight: 'bold', fontSize: 14 },
-  loadMoreBtn: { backgroundColor: '#225F91', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 32, alignSelf: 'center', marginVertical: 18 },
-  loadMoreText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  swipeActionsRow: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', height: '95%', marginRight: 8 },
-  actionButton: { width: 70, height: '90%', marginLeft: 8, borderRadius: 14, justifyContent: 'center', alignItems: 'center', flexDirection: 'column', elevation: 2 },
-  actionText: { color: '#fff', fontWeight: 'bold', fontSize: 13, marginTop: 2 },
   infiniteScrollSpinner: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
-}); 
+});
