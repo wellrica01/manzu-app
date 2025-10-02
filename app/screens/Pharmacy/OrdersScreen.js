@@ -1,117 +1,178 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, RefreshControl, TextInput, Animated } from 'react-native';
+import React, { useEffect, useState, useContext, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, RefreshControl, TextInput, Animated, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../../context/AuthContext';
 import { apiRequest } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 
-const STATUS_ORDER = ['CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'COMPLETED'];
-const STATUS_LABELS = {
-  ALL: 'All',
-  CONFIRMED: 'Pending', // Backend: confirmed, Frontend: pending
-  PROCESSING: 'Processing',
-  READY_FOR_PICKUP: 'Ready for Pickup',
-  SHIPPED: 'Shipped',
-  DELIVERED: 'Delivered',
-  CANCELLED: 'Cancelled',
-  COMPLETED: 'Completed',
-};
-const STATUS_COLORS = {
-  CONFIRMED: '#F59E42', // Orange for pending (confirmed)
-  PROCESSING: '#1ABA7F',
-  READY_FOR_PICKUP: '#225F91',
-  SHIPPED: '#8B5CF6',
-  DELIVERED: '#16A34A',
-  CANCELLED: '#DC2626',
-  COMPLETED: '#059669',
-  ALL: '#225F91',
+const STATUS_CONFIG = {
+  ALL: { label: 'All Orders', color: '#6B7280', icon: 'apps', bg: '#F3F4F6' },
+  CONFIRMED: { label: 'Pending', color: '#F59E42', icon: 'time', bg: '#FEF3C7' },
+  PROCESSING: { label: 'Processing', color: '#1ABA7F', icon: 'refresh', bg: '#D1FAE5' },
+  READY_FOR_PICKUP: { label: 'Ready', color: '#225F91', icon: 'checkmark-circle', bg: '#DBEAFE' },
+  SHIPPED: { label: 'Shipped', color: '#8B5CF6', icon: 'airplane', bg: '#EDE9FE' },
+  DELIVERED: { label: 'Delivered', color: '#16A34A', icon: 'checkmark-done', bg: '#DCFCE7' },
+  CANCELLED: { label: 'Cancelled', color: '#DC2626', icon: 'close-circle', bg: '#FEE2E2' },
+  COMPLETED: { label: 'Completed', color: '#059669', icon: 'shield-checkmark', bg: '#D1FAE5' },
 };
 
-function StatusBadge({ status }) {
+const FilterChip = ({ status, active, onPress, count }) => {
+  const config = STATUS_CONFIG[status];
   return (
-    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[status] || '#888' }]}> 
-      <Text style={styles.statusText}>{STATUS_LABELS[status] || status}</Text>
-    </View>
+    <TouchableOpacity
+      style={[
+        styles.filterChip,
+        active && { backgroundColor: config.color, borderColor: config.color }
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Ionicons name={config.icon} size={16} color={active ? '#fff' : config.color} />
+      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+        {config.label}
+      </Text>
+      {count !== undefined && count > 0 && (
+        <View style={[styles.filterBadge, active && styles.filterBadgeActive]}>
+          <Text style={[styles.filterBadgeText, active && styles.filterBadgeTextActive]}>
+            {count}
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
   );
-}
+};
 
-function MedicationsPreview({ items }) {
-  if (!items || items.length === 0) return null;
-  const names = items.map(i => i.medication?.name).filter(Boolean);
-  const summary = names.length > 2 ? `${names.slice(0,2).join(', ')} +${names.length-2} more` : names.join(', ');
-  return <Text style={styles.medsPreview}>{summary}</Text>;
-}
+const OrderCard = ({ order, onPress }) => {
+  const config = STATUS_CONFIG[order.status] || STATUS_CONFIG.CONFIRMED;
+  const itemCount = order.items?.length || 0;
+  const hasRx = order.prescription?.fileUrl;
 
-function PrescriptionThumb({ prescription }) {
-  if (!prescription?.fileUrl || typeof prescription.fileUrl !== 'string' || prescription.fileUrl.trim() === '') {
-    return null; // Render nothing if no valid prescription file exists
-  }
   return (
-    <View style={styles.prescriptionThumbContainer} accessibilityLabel="Prescription available">
-      <View style={styles.prescriptionIconContainer}>
-        <Ionicons name="medical" size={20} color="#225F91" />
-        <Text style={styles.prescriptionLabel}>Rx</Text>
+    <TouchableOpacity style={styles.orderCard} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderLeft}>
+          <View style={[styles.statusIndicator, { backgroundColor: config.color + '15' }]}>
+            <Ionicons name={config.icon} size={20} color={config.color} />
+          </View>
+          <View style={styles.orderIdSection}>
+            <Text style={styles.orderId}>Order #{order.id}</Text>
+            <Text style={styles.orderDate}>
+              {new Date(order.createdAt).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
+          <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>
+        </View>
       </View>
-    </View>
-  );
-}
 
-function SkeletonCard() {
-  const shimmer = new Animated.Value(0);
-  React.useEffect(() => {
+      <View style={styles.cardBody}>
+        <View style={styles.infoRow}>
+          <Ionicons name="person-outline" size={16} color="#6B7280" />
+          <Text style={styles.infoText}>{order.name || 'N/A'}</Text>
+        </View>
+
+        {order.items && order.items.length > 0 && (
+          <View style={styles.medicationsSection}>
+            <View style={styles.medsHeader}>
+              <Ionicons name="medical" size={14} color="#1ABA7F" />
+              <Text style={styles.medsCount}>{itemCount} medication{itemCount !== 1 ? 's' : ''}</Text>
+            </View>
+            <Text style={styles.medsPreview} numberOfLines={2}>
+              {order.items.slice(0, 3).map(i => i.medication?.brandName || i.medication?.name).filter(Boolean).join(', ')}
+              {itemCount > 3 && ` +${itemCount - 3} more`}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.cardFooter}>
+          <View style={styles.priceSection}>
+            <Text style={styles.priceLabel}>Total</Text>
+            <Text style={styles.priceValue}>₦{order.totalPrice?.toLocaleString() || '0'}</Text>
+          </View>
+          {hasRx && (
+            <View style={styles.rxBadge}>
+              <Ionicons name="document-text" size={14} color="#225F91" />
+              <Text style={styles.rxText}>Rx</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const SkeletonCard = () => {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(shimmer, { toValue: 1, duration: 1200, useNativeDriver: true }),
-        Animated.timing(shimmer, { toValue: 0, duration: 1200, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: 0, duration: 1000, useNativeDriver: true }),
       ])
     ).start();
   }, []);
-  const bg = shimmer.interpolate({
+
+  const opacity = shimmerAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['rgba(34,95,145,0.08)', 'rgba(26,186,127,0.13)'],
+    outputRange: [0.3, 0.7],
   });
+
   return (
-    <Animated.View style={[styles.skeletonCard, { backgroundColor: bg }]}> 
-      <View style={styles.skeletonRow}>
-        <View style={styles.skeletonTitle} />
-        <View style={styles.skeletonBadge} />
+    <Animated.View style={[styles.skeletonCard, { opacity }]}>
+      <View style={styles.skeletonHeader}>
+        <View style={styles.skeletonCircle} />
+        <View style={styles.skeletonBlock} />
       </View>
       <View style={styles.skeletonLine} />
       <View style={styles.skeletonLineShort} />
-      <View style={styles.skeletonLineShort} />
-      <View style={styles.skeletonThumb} />
+      <View style={styles.skeletonFooter}>
+        <View style={styles.skeletonBlock} />
+        <View style={styles.skeletonBadge} />
+      </View>
     </Animated.View>
   );
-}
+};
 
-export default function OrdersScreen({ navigation }) {
+export default function OrdersScreen({ navigation, route }) {
   const { token } = useContext(AuthContext);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState(route?.params?.filter || 'ALL');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [showAllFilters, setShowAllFilters] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const PAGE_SIZE = 20;
 
   const fetchOrders = async (opts = {}) => {
     setError('');
     const isRefresh = opts.refresh;
     const isNewFilter = opts.newFilter;
-    if (isRefresh || isNewFilter) setPage(1);
+    const currentPage = isRefresh || isNewFilter ? 1 : page;
+    
     try {
-      if (!isRefresh && !isNewFilter) setLoading(true);
-      const res = await apiRequest(`/pharmacy/orders?page=${isNewFilter ? 1 : (isRefresh ? 1 : page)}&limit=${PAGE_SIZE}`, 'GET', undefined, token);
+      if (!isRefresh && !isNewFilter && !opts.loadMore) setLoading(true);
+      const res = await apiRequest(`/pharmacy/orders?page=${currentPage}&limit=${PAGE_SIZE}`, 'GET', undefined, token);
       setTotal(res.total || 0);
+      
       if (isRefresh || isNewFilter) {
         setOrders(res.orders || []);
-      } else {
+        setPage(1);
+      } else if (opts.loadMore) {
         setOrders(prev => [...prev, ...(res.orders || [])]);
+      } else {
+        setOrders(res.orders || []);
       }
     } catch (err) {
       setError(err.message);
@@ -123,17 +184,24 @@ export default function OrdersScreen({ navigation }) {
   };
 
   useEffect(() => {
-    setOrders([]);
-    setPage(1);
     fetchOrders({ newFilter: true });
-  }, [search, statusFilter]);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   const loadMore = async () => {
-    if (orders.length >= total || loadingMore) return;
+    if (orders.length >= total || loadingMore || loading) return;
     setLoadingMore(true);
-    setPage(prev => prev + 1);
+    const nextPage = page + 1;
+    setPage(nextPage);
+    
     try {
-      const nextPage = page + 1;
       const res = await apiRequest(`/pharmacy/orders?page=${nextPage}&limit=${PAGE_SIZE}`, 'GET', undefined, token);
       setOrders(prev => [...prev, ...(res.orders || [])]);
       setTotal(res.total || 0);
@@ -146,175 +214,495 @@ export default function OrdersScreen({ navigation }) {
 
   const onRefresh = () => {
     setRefreshing(true);
-    setPage(1);
     fetchOrders({ refresh: true });
   };
 
   const filtered = orders.filter(order => {
     const q = search.toLowerCase();
-    const matchesSearch = (
+    const matchesSearch = !q || (
       order.id.toString().includes(q) ||
-      (order.userIdentifier && order.userIdentifier.toLowerCase().includes(q)) ||
-      (order.items && order.items.some(i => i.medication?.name?.toLowerCase().includes(q)))
+      order.name?.toLowerCase().includes(q) ||
+      order.userIdentifier?.toLowerCase().includes(q) ||
+      order.items?.some(i => 
+        i.medication?.brandName?.toLowerCase().includes(q) ||
+        i.medication?.name?.toLowerCase().includes(q)
+      )
     );
-    const matchesStatus = statusFilter === 'ALL' ? true : order.status === statusFilter;
+    const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.orderCard} onPress={() => navigation.navigate('OrderDetails', { order: item })} activeOpacity={0.85}>
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-          <Text style={styles.orderTitle}>Order #{item.id}</Text>
-          <StatusBadge status={item.status} />
-        </View>
-        <MedicationsPreview items={item.items} />
-        <Text style={styles.orderSub}>Name: {item.name || 'N/A'}</Text>
-        <Text style={styles.orderSub}>Total: ₦{item.totalPrice?.toLocaleString() || '0'}</Text>
-        <Text style={styles.orderSub}>Date: {new Date(item.createdAt).toLocaleDateString()}</Text>
-      </View>
-      <PrescriptionThumb prescription={item.prescription} />
-    </TouchableOpacity>
-  );
+  // Get status counts
+  const statusCounts = orders.reduce((acc, order) => {
+    acc[order.status] = (acc[order.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  const mainFilters = ['ALL', 'CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP'];
+  const otherFilters = ['SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
 
   return (
-    <LinearGradient colors={['#1ABA7F', '#225F91']} style={styles.gradientBg}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <View style={styles.header}>
-          <Ionicons name="cart-outline" size={32} color="#fff" style={{ marginRight: 12 }} />
-          <Text style={styles.title}>Orders</Text>
-          <Text style={styles.subtitle}>Manage all your pharmacy orders here.</Text>
-        </View>
-        <View style={styles.filterRow}>
-          {(['ALL', 'CONFIRMED', 'PROCESSING'].map(status => (
-            <TouchableOpacity
-              key={status}
-              style={[styles.filterChip, statusFilter === status && { backgroundColor: STATUS_COLORS[status], borderColor: STATUS_COLORS[status] }]}
-              onPress={() => setStatusFilter(status)}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.filterChipText, statusFilter === status && { color: '#fff' }]}>{STATUS_LABELS[status]}</Text>
-            </TouchableOpacity>
-          )))}
-          {showAllFilters && (
-            STATUS_ORDER.filter(status => !['CONFIRMED', 'PROCESSING'].includes(status)).map(status => (
-              <TouchableOpacity
-                key={status}
-                style={[styles.filterChip, statusFilter === status && { backgroundColor: STATUS_COLORS[status], borderColor: STATUS_COLORS[status] }]}
-                onPress={() => setStatusFilter(status)}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.filterChipText, statusFilter === status && { color: '#fff' }]}>{STATUS_LABELS[status]}</Text>
-              </TouchableOpacity>
-            ))
-          )}
-          <TouchableOpacity
-            style={styles.filterChip}
-            onPress={() => setShowAllFilters(v => !v)}
-            activeOpacity={0.85}
+    <View style={styles.container}>
+      <LinearGradient colors={['#F8FAFC', '#F1F5F9']} style={styles.gradientBg}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerContent}>
+              <View style={styles.headerIcon}>
+                <Ionicons name="receipt" size={24} color="#225F91" />
+              </View>
+              <View>
+                <Text style={styles.headerTitle}>Orders</Text>
+                <Text style={styles.headerSubtitle}>
+                  {filtered.length} of {total} order{total !== 1 ? 's' : ''}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Search */}
+          <Animated.View style={[styles.searchSection, { opacity: fadeAnim }]}>
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search orders, customers, medications..."
+                value={search}
+                onChangeText={setSearch}
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="none"
+              />
+              {search.length > 0 && (
+                <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
+                  <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </Animated.View>
+
+          {/* Filters */}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterContainer}
           >
-            <Text style={styles.filterChipText}>{showAllFilters ? 'Less' : 'More'}</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.searchRow}>
-          <Ionicons name="search" size={20} color="#225F91" style={{ marginRight: 8 }} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by user, order #, or medication"
-            placeholderTextColor="#7FB7A3"
-            value={search}
-            onChangeText={setSearch}
-            autoCapitalize="none"
-            clearButtonMode="while-editing"
-          />
-        </View>
-        {loading && orders.length === 0 ? (
-          <View style={styles.skeletonList}>
-            {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
-          </View>
-        ) : error ? (
-          <Text style={styles.error}>{error}</Text>
-        ) : filtered.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="file-tray-outline" size={48} color="#fff" style={{ marginBottom: 12, opacity: 0.7 }} />
-            <Text style={styles.emptyText}>No orders found.</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filtered}
-            keyExtractor={item => item.id.toString()}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1ABA7F" />}
-            onEndReached={loadMore}
-            onEndReachedThreshold={0.2}
-            ListFooterComponent={
-              loadingMore ? (
-                <View style={styles.infiniteScrollSpinner}>
-                  <ActivityIndicator size="small" color="#1ABA7F" />
-                </View>
-              ) : null
-            }
-          />
-        )}
-      </SafeAreaView>
-    </LinearGradient>
+            {mainFilters.map(status => (
+              <FilterChip
+                key={status}
+                status={status}
+                active={statusFilter === status}
+                onPress={() => setStatusFilter(status)}
+                count={status === 'ALL' ? total : statusCounts[status]}
+              />
+            ))}
+            <View style={styles.filterDivider} />
+            {otherFilters.map(status => (
+              <FilterChip
+                key={status}
+                status={status}
+                active={statusFilter === status}
+                onPress={() => setStatusFilter(status)}
+                count={statusCounts[status]}
+              />
+            ))}
+          </ScrollView>
+
+          {/* Content */}
+          {loading && orders.length === 0 ? (
+            <View style={styles.skeletonContainer}>
+              {[...Array(5)].map((_, i) => <SkeletonCard key={i} />)}
+            </View>
+          ) : error ? (
+            <View style={styles.centerContent}>
+              <Ionicons name="alert-circle" size={48} color="#DC2626" />
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={() => fetchOrders({ refresh: true })}>
+                <Text style={styles.retryBtnText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : filtered.length === 0 ? (
+            <View style={styles.centerContent}>
+              <Ionicons name="file-tray-outline" size={64} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>
+                {search ? 'No orders found' : 'No orders yet'}
+              </Text>
+              <Text style={styles.emptyText}>
+                {search 
+                  ? 'Try adjusting your search or filters' 
+                  : 'Orders will appear here when customers place them'
+                }
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filtered}
+              keyExtractor={item => item.id.toString()}
+              renderItem={({ item }) => (
+                <OrderCard 
+                  order={item} 
+                  onPress={() => navigation.navigate('OrderDetails', { order: item })}
+                />
+              )}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1ABA7F" />
+              }
+              onEndReached={loadMore}
+              onEndReachedThreshold={0.3}
+              ListFooterComponent={
+                loadingMore ? (
+                  <View style={styles.loadMoreContainer}>
+                    <ActivityIndicator size="small" color="#1ABA7F" />
+                    <Text style={styles.loadMoreText}>Loading more...</Text>
+                  </View>
+                ) : null
+              }
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradientBg: { flex: 1 },
-  safeArea: { flex: 1 },
-  header: { marginTop: 16, marginBottom: 8, alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#fff', textAlign: 'center', textShadowColor: 'rgba(34,95,145,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
-  subtitle: { fontSize: 15, color: '#fff', textAlign: 'center', marginTop: 6, textShadowColor: 'rgba(34,95,145,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-  error: { color: '#fff', backgroundColor: 'rgba(220,53,69,0.85)', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 12, textAlign: 'center', fontWeight: 'bold', fontSize: 15, marginTop: 24 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, paddingHorizontal: 12, marginHorizontal: 16, marginBottom: 12, height: 44, shadowColor: '#1ABA7F', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-  searchInput: { flex: 1, fontSize: 15, color: '#225F91', height: 44 },
-  listContent: { paddingHorizontal: 8, paddingBottom: 32 },
-  orderCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 18, padding: 18, marginBottom: 14, shadowColor: '#1ABA7F', shadowOpacity: 0.13, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
-  orderTitle: { color: '#225F91', fontWeight: 'bold', fontSize: 17, marginBottom: 2, marginRight: 8 },
-  orderSub: { color: '#4B5563', fontSize: 14, marginBottom: 2 },
-  medsPreview: { color: '#1ABA7F', fontWeight: '600', fontSize: 14, marginBottom: 2 },
-  statusBadge: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 12, alignSelf: 'flex-start', marginLeft: 8 },
-  statusText: { color: '#fff', fontWeight: 'bold', fontSize: 13, textTransform: 'capitalize' },
-  prescriptionThumbContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    marginLeft: 12,
-    backgroundColor: '#E5F6F0',
-    shadowColor: '#1ABA7F',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    borderWidth: 1,
-    borderColor: '#1ABA7F',
-    alignItems: 'center',
-    justifyContent: 'center',
+  container: {
+    flex: 1,
   },
-  prescriptionIconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  gradientBg: {
+    flex: 1,
   },
-  prescriptionLabel: {
-    fontSize: 10,
-    color: '#225F91',
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1ABA7F15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
+    color: '#111827',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
     marginTop: 2,
   },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 60 },
-  emptyText: { color: '#fff', fontSize: 18, fontWeight: '600', opacity: 0.7 },
-  skeletonList: { width: '100%', paddingHorizontal: 8, marginTop: 24 },
-  skeletonCard: { borderRadius: 18, padding: 18, marginBottom: 14, width: '100%', maxWidth: 500, alignSelf: 'center', backgroundColor: 'rgba(34,95,145,0.08)' },
-  skeletonRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  skeletonTitle: { width: 110, height: 18, borderRadius: 6, backgroundColor: 'rgba(34,95,145,0.13)', marginRight: 12 },
-  skeletonBadge: { width: 60, height: 18, borderRadius: 9, backgroundColor: 'rgba(26,186,127,0.13)' },
-  skeletonLine: { width: '80%', height: 12, borderRadius: 6, backgroundColor: 'rgba(34,95,145,0.10)', marginBottom: 8 },
-  skeletonLineShort: { width: '50%', height: 12, borderRadius: 6, backgroundColor: 'rgba(34,95,145,0.10)', marginBottom: 8 },
-  skeletonThumb: { width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(26,186,127,0.10)', alignSelf: 'flex-end', marginTop: 8 },
-  filterRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginHorizontal: 8, paddingVertical: 2, flexWrap: 'wrap' },
-  filterChip: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderColor: '#E5F6F0', paddingHorizontal: 14, paddingVertical: 7, marginRight: 8, marginBottom: 6 },
-  filterChipText: { color: '#225F91', fontWeight: 'bold', fontSize: 14 },
-  infiniteScrollSpinner: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
+  searchSection: {
+    padding: 20,
+    backgroundColor: '#fff',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 48,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#111827',
+  },
+  clearBtn: {
+    padding: 4,
+  },
+  filterContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  filterChipTextActive: {
+    color: '#fff',
+  },
+  filterBadge: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  filterBadgeActive: {
+    backgroundColor: '#fff',
+  },
+  filterBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  filterBadgeTextActive: {
+    color: '#1ABA7F',
+  },
+  filterDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 8,
+  },
+  listContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  orderCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  statusIndicator: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orderIdSection: {
+    flex: 1,
+  },
+  orderId: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  orderDate: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  cardBody: {
+    gap: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  medicationsSection: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    padding: 12,
+  },
+  medsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  medsCount: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1ABA7F',
+  },
+  medsPreview: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  priceSection: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  priceLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  priceValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#225F91',
+  },
+  rxBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  rxText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#225F91',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#DC2626',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    backgroundColor: '#1ABA7F',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  retryBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  loadMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 10,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  skeletonContainer: {
+    padding: 20,
+  },
+  skeletonCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  skeletonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  skeletonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  skeletonBlock: {
+    flex: 1,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  skeletonLine: {
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#F3F4F6',
+    marginBottom: 8,
+    width: '80%',
+  },
+  skeletonLineShort: {
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#F3F4F6',
+    marginBottom: 12,
+    width: '60%',
+  },
+  skeletonFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  skeletonBadge: {
+    width: 60,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
 });

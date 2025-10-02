@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { fetchSalesHistory } from '../../services/pos';
 import { AuthContext } from '../../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-const SalesHistoryScreen = () => {
+const SalesHistoryScreen = ({ navigation }) => {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const { token } = useContext(AuthContext);
@@ -47,13 +47,16 @@ const SalesHistoryScreen = () => {
   return (
     <LinearGradient colors={["#1ABA7F", "#225F91"]} style={styles.gradientBg}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <View style={[styles.header, { marginTop: 44 }]}>
-          <Ionicons name="time" size={32} color="#fff" style={{ marginRight: 12 }} />
+          <View style={styles.header}>
+                  <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <Text style={styles.title}>Sales History</Text>
+                  <Ionicons name="time" size={32} color="#fff" style={{ marginRight: 12 }} />
+                </View>
           <View>
-            <Text style={styles.title}>Sales History</Text>
             <Text style={styles.subtitle}>All PoS sales made today</Text>
           </View>
-        </View>
         {loading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color="#fff" />
@@ -79,16 +82,14 @@ const SalesHistoryScreen = () => {
 const styles = StyleSheet.create({
   gradientBg: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: 0 },
-  header: { 
-    marginTop: 16,
-    marginBottom: 8, 
-    alignItems: 'center' 
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16 },
+  backBtn: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 8 },
   title: { 
     fontSize: 24, 
     fontWeight: 'bold', 
     color: '#fff', 
     textAlign: 'center', 
+    flex: 1,
     textShadowColor: 'rgba(34,95,145,0.4)', 
     textShadowOffset: { width: 0, height: 2 }, 
     textShadowRadius: 6 
@@ -108,6 +109,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     marginBottom: 16,
+    marginTop: 16,
     shadowColor: '#1ABA7F',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.10,

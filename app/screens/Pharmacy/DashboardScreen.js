@@ -1,41 +1,208 @@
+// DashboardScreen.js - PREMIUM VERSION
+
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Image, Animated, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Animated, FlatList, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../../context/AuthContext';
 import { apiRequest } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 
-const STAT_CARDS = [
-  { key: 'ordersAndPoS', labelLeft: 'Orders Today', labelRight: 'PoS Sales Today', iconLeft: 'cart', iconRight: 'storefront', colorLeft: '#1ABA7F', colorRight: '#0EA5E9' },
-  { key: 'revenue', labelTop: 'Online Revenue', labelBottom: 'PoS Revenue', iconTop: 'cash', iconBottom: 'wallet', colorTop: '#225F91', colorBottom: '#16A34A' },
-  { key: 'pendingAndStock', labelLeft: 'Pending Orders', labelRight: 'Low Stock', iconLeft: 'time', iconRight: 'alert-circle', colorLeft: '#F59E42', colorRight: '#DC2626' },
-];
+const { width } = Dimensions.get('window');
 
-
-const STATUS_LABELS = {
-  CONFIRMED: 'Pending', // Backend: confirmed, Frontend: pending
-  PROCESSING: 'Processing',
-  READY_FOR_PICKUP: 'Ready',
-  SHIPPED: 'Shipped',
-  DELIVERED: 'Delivered',
-  CANCELLED: 'Cancelled',
-  COMPLETED: 'Completed',
+const STATUS_CONFIG = {
+  CONFIRMED: { label: 'Pending', color: '#F59E42', bg: 'rgba(245, 158, 66, 0.1)' },
+  PROCESSING: { label: 'Processing', color: '#1ABA7F', bg: 'rgba(26, 186, 127, 0.1)' },
+  READY_FOR_PICKUP: { label: 'Ready', color: '#225F91', bg: 'rgba(34, 95, 145, 0.1)' },
+  SHIPPED: { label: 'Shipped', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' },
+  DELIVERED: { label: 'Delivered', color: '#16A34A', bg: 'rgba(22, 163, 74, 0.1)' },
+  CANCELLED: { label: 'Cancelled', color: '#DC2626', bg: 'rgba(220, 38, 38, 0.1)' },
+  COMPLETED: { label: 'Completed', color: '#059669', bg: 'rgba(5, 150, 105, 0.1)' },
 };
-const STATUS_COLORS = {
-  CONFIRMED: '#F59E42', // Orange for pending (confirmed)
-  PROCESSING: '#1ABA7F',
-  READY_FOR_PICKUP: '#225F91',
-  SHIPPED: '#8B5CF6',
-  DELIVERED: '#16A34A',
-  CANCELLED: '#DC2626',
-  COMPLETED: '#059669',
+
+// Enhanced Stat Card with Trends
+const StatCard = ({ icon, label, value, color, trend, subtitle }) => {
+  const getTrendColor = (trend) => {
+    if (!trend) return '#6B7280';
+    return trend > 0 ? '#16A34A' : trend < 0 ? '#DC2626' : '#6B7280';
+  };
+
+  const getTrendIcon = (trend) => {
+    if (!trend) return null;
+    return trend > 0 ? 'trending-up' : trend < 0 ? 'trending-down' : 'remove';
+  };
+
+  return (
+    <View style={[styles.statCard, { borderLeftColor: color, borderLeftWidth: 4 }]}>
+      <View style={styles.statHeader}>
+        <View style={[styles.iconCircle, { backgroundColor: color + '15' }]}>
+          <Ionicons name={icon} size={20} color={color} />
+        </View>
+        {trend !== undefined && trend !== null && (
+          <View style={[styles.trendBadge, { backgroundColor: getTrendColor(trend) + '15' }]}>
+            <Ionicons name={getTrendIcon(trend)} size={10} color={getTrendColor(trend)} />
+            <Text style={[styles.trendText, { color: getTrendColor(trend) }]}>
+              {trend > 0 ? '+' : ''}{trend}%
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+    </View>
+  );
+};
+
+// Revenue Card with Privacy Toggle
+const RevenueCard = ({ label, value, icon, color, visible, toggleVisible, trend }) => {
+  const getTrendColor = (trend) => {
+    if (!trend) return '#6B7280';
+    return trend > 0 ? '#16A34A' : trend < 0 ? '#DC2626' : '#6B7280';
+  };
+
+  return (
+    <View style={styles.revenueCard}>
+      <View style={styles.revenueHeader}>
+        <View style={[styles.iconCircle, { backgroundColor: color + '15' }]}>
+          <Ionicons name={icon} size={18} color={color} />
+        </View>
+        <View style={styles.revenueHeaderRight}>
+          {trend !== undefined && (
+            <View style={[styles.miniTrendBadge, { backgroundColor: getTrendColor(trend) + '15' }]}>
+              <Text style={[styles.miniTrendText, { color: getTrendColor(trend) }]}>
+                {trend > 0 ? '+' : ''}{trend}%
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity onPress={toggleVisible} style={styles.eyeButton}>
+            <Ionicons name={visible ? 'eye' : 'eye-off'} size={18} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      <Text style={styles.revenueLabel}>{label}</Text>
+      <Text style={[styles.revenueValue, { color }]}>
+        {visible ? `₦${value.toLocaleString()}` : '••••••'}
+      </Text>
+    </View>
+  );
+};
+
+// Quick Action Card
+const QuickActionCard = ({ icon, label, description, color, badge, onPress }) => {
+  return (
+    <TouchableOpacity 
+      style={[styles.actionCard, { borderTopColor: color, borderTopWidth: 3 }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {badge > 0 && (
+        <View style={[styles.actionBadge, { backgroundColor: color }]}>
+          <Text style={styles.actionBadgeText}>{badge}</Text>
+        </View>
+      )}
+      <View style={[styles.actionIconCircle, { backgroundColor: color + '15' }]}>
+        <Ionicons name={icon} size={24} color={color} />
+      </View>
+      <Text style={styles.actionLabel}>{label}</Text>
+      <Text style={styles.actionDesc}>{description}</Text>
+    </TouchableOpacity>
+  );
+};
+
+// Activity Item
+const ActivityItem = ({ activity }) => {
+  const config = STATUS_CONFIG[activity.status] || STATUS_CONFIG.CONFIRMED;
+  const timeAgo = getTimeAgo(activity.time);
+
+  return (
+    <TouchableOpacity style={styles.activityItem} activeOpacity={0.7}>
+      <View style={[styles.activityDot, { backgroundColor: config.color }]} />
+      <View style={styles.activityContent}>
+        <View style={styles.activityHeader}>
+          <Text style={styles.activityTitle}>Order #{activity.id}</Text>
+          <Text style={styles.activityAmount}>₦{activity.amount?.toLocaleString()}</Text>
+        </View>
+        <View style={styles.activityFooter}>
+          <View style={[styles.activityStatus, { backgroundColor: config.bg }]}>
+            <Text style={[styles.activityStatusText, { color: config.color }]}>{config.label}</Text>
+          </View>
+          <Text style={styles.activityTime}>{timeAgo}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// Top Selling Med Item
+const TopMedItem = ({ med, index }) => {
+  const colors = ['#1ABA7F', '#225F91', '#F59E42', '#8B5CF6', '#DC2626'];
+  const color = colors[index % colors.length];
+
+  return (
+    <View style={styles.topMedItem}>
+      <View style={styles.topMedRank}>
+        <Text style={[styles.topMedRankText, { color }]}>#{index + 1}</Text>
+      </View>
+      <View style={styles.topMedContent}>
+        <Text style={styles.topMedName} numberOfLines={1}>{med.name}</Text>
+        <View style={styles.topMedStats}>
+          <View style={styles.topMedStat}>
+            <Ionicons name="cube" size={12} color="#6B7280" />
+            <Text style={styles.topMedStatText}>{med.quantity} units</Text>
+          </View>
+          <View style={styles.topMedStat}>
+            <Ionicons name="cash" size={12} color="#6B7280" />
+            <Text style={styles.topMedStatText}>₦{med.revenue?.toLocaleString()}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// Low Stock Item
+const LowStockItem = ({ med }) => {
+  const urgency = med.stock === 0 ? 'critical' : med.stock < 5 ? 'high' : 'medium';
+  const color = urgency === 'critical' ? '#DC2626' : urgency === 'high' ? '#F59E42' : '#F59E42';
+
+  return (
+    <View style={[styles.lowStockItem, { borderLeftColor: color }]}>
+      <View style={styles.lowStockHeader}>
+        <Text style={styles.lowStockName} numberOfLines={1}>{med.name}</Text>
+        <View style={[styles.lowStockBadge, { backgroundColor: color + '15' }]}>
+          <Text style={[styles.lowStockBadgeText, { color }]}>{med.stock} left</Text>
+        </View>
+      </View>
+      {med.form && <Text style={styles.lowStockForm}>{med.form}</Text>}
+    </View>
+  );
+};
+
+// Helper function
+const getTimeAgo = (date) => {
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  const intervals = {
+    year: 31536000,
+    month: 2592000,
+    week: 604800,
+    day: 86400,
+    hour: 3600,
+    minute: 60,
+  };
+
+  for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+    const interval = Math.floor(seconds / secondsInUnit);
+    if (interval >= 1) {
+      return `${interval} ${unit}${interval > 1 ? 's' : ''} ago`;
+    }
+  }
+  return 'Just now';
 };
 
 export default function DashboardScreen({ navigation }) {
   const { user, token } = useContext(AuthContext);
   const [data, setData] = useState(null);
-  const [recentOrders, setRecentOrders] = useState([]); // <-- new state
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -49,14 +216,6 @@ export default function DashboardScreen({ navigation }) {
       setLoading(true);
       const json = await apiRequest('/pharmacy/dashboard', 'GET', undefined, token);
       setData(json);
-      // Fetch recent orders (first 5)
-      const ordersRes = await apiRequest('/pharmacy/orders?page=1&limit=5', 'GET', undefined, token);
-      // Map backend orders to UI format
-      const mappedOrders = (ordersRes.orders || []).map(order => ({
-        ...order,
-        createdAt: new Date(order.createdAt),
-      }));
-      setRecentOrders(mappedOrders);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -69,301 +228,655 @@ export default function DashboardScreen({ navigation }) {
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 700,
+      duration: 600,
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
+
   const onRefresh = () => { setRefreshing(true); fetchDashboard(); };
 
-  // Animated card scale on mount
-  const cardAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.spring(cardAnim, {
-      toValue: 1,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  // Render stat cards
-  const renderStatCards = () => (
-    <View style={styles.cardsGrid}>
-            {/* Pending Orders & Low Stock (columns) */}
-            <Animated.View
-        key="pendingAndStock"
-        style={[
-          styles.card,
-          { backgroundColor: 'rgba(255,255,255,0.98)' },
-          { transform: [{ scale: cardAnim }] },
-          { shadowColor: '#F59E42' },
-          { minWidth: 340, flexBasis: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 32, marginHorizontal: 8, marginVertical: 10 },
-        ]}
-      >
-        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
-          <Ionicons name="time" size={32} color="#F59E42" style={{ marginBottom: 8 }} />
-          <Text style={styles.cardLabel}>Pending Orders</Text>
-          <Text style={[styles.cardValue, { color: '#F59E42' }]}>{data ? data.pendingOrders : '--'}</Text>
-        </View>
-        <View style={{ width: 1, backgroundColor: '#e0e7ef', height: 56, marginHorizontal: 24 }} />
-        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
-          <Ionicons name="alert-circle" size={32} color="#DC2626" style={{ marginBottom: 8 }} />
-          <Text style={styles.cardLabel}>Low Stock</Text>
-          <Text style={[styles.cardValue, { color: '#DC2626' }]}>{data ? data.inventoryAlerts : '--'}</Text>
-        </View>
-      </Animated.View>
-      {/* Orders Today & PoS Sales Today (columns) */}
-      <Animated.View
-        key="ordersAndPoS"
-        style={[
-          styles.card,
-          { backgroundColor: 'rgba(255,255,255,0.98)' },
-          { transform: [{ scale: cardAnim }] },
-          { shadowColor: '#1ABA7F' },
-          { minWidth: 340, flexBasis: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 32, marginHorizontal: 8, marginVertical: 10 },
-        ]}
-      >
-        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
-          <Ionicons name="cart" size={32} color="#16A34A" style={{ marginBottom: 8 }} />
-          <Text style={styles.cardLabelOrders}>Orders Today</Text>
-          <Text style={[styles.cardValue, { color: '#16A34A' }]}>{data ? data.ordersToday : '--'}</Text>
-        </View>
-        <View style={{ width: 1, backgroundColor: '#e0e7ef', height: 56, marginHorizontal: 24 }} />
-        <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
-          <Ionicons name="storefront" size={32} color="#16A34A" style={{ marginBottom: 8 }} />
-          <Text style={styles.cardLabelPoS}>PoS Sales Today</Text>
-          <Text style={[styles.cardValue, { color: '#16A34A' }]}>{data ? data.posSalesToday : '--'}</Text>
-        </View>
-      </Animated.View>
-      {/* Revenue Card (rows, centered, with separator and eye icon) */}
-      <Animated.View
-        key="revenue"
-        style={[
-          styles.card,
-          { backgroundColor: 'rgba(255,255,255,0.98)' },
-          { transform: [{ scale: cardAnim }] },
-          { shadowColor: '#225F91' },
-          { minWidth: 340, flexBasis: '100%', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, marginHorizontal: 8, marginVertical: 10 },
-        ]}
-      >
-        <View style={styles.revenueRow}>
-          <Ionicons name="cash" size={28} color="#16A34A" />
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={styles.revenueLabelOrders}>Online Revenue</Text>
-          </View>
-          <Ionicons
-            name={showOnlineRevenue ? 'eye' : 'eye-off'}
-            size={22}
-            color="#16A34A"
-            onPress={() => setShowOnlineRevenue(v => !v)}
-          />
-        </View>
-        <Text style={[styles.cardValue, { color: '#16A34A', marginBottom: 10, textAlign: 'center' }]}> 
-          {showOnlineRevenue ? (data ? `₦${data.revenueToday?.toLocaleString()}` : '--') : '••••••'}
-        </Text>
-        {/* Horizontal separator */}
-        <View style={{ width: 120, height: 1, backgroundColor: '#e0e7ef', marginVertical: 6, alignSelf: 'center' }} />
-        <View style={styles.revenueRow}>
-          <Ionicons name="wallet" size={28} color="#16A34A" />
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={styles.revenueLabelPoS}>PoS Revenue</Text>
-          </View>
-          <Ionicons
-            name={showPosRevenue ? 'eye' : 'eye-off'}
-            size={22}
-            color="#16A34A"
-            onPress={() => setShowPosRevenue(v => !v)}
-          />
-        </View>
-        <Text style={[styles.cardValue, { color: '#16A34A', textAlign: 'center' }]}> 
-          {showPosRevenue ? (data ? `₦${data.posRevenueToday?.toLocaleString()}` : '--') : '••••••'}
-        </Text>
-      </Animated.View>
-    </View>
-  );
-
-  // Render recent orders
-  const renderRecentOrders = () => (
-    <View style={styles.recentSection}>
-      <View style={styles.recentHeader}>
-        <Text style={styles.recentTitle}>Recent Orders</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Orders')}>
-          <Text style={styles.recentLink}>View All</Text>
-        </TouchableOpacity>
-      </View>
-      <FlatList
-        data={recentOrders}
-        keyExtractor={item => item.id.toString()}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.recentList}
-        ListEmptyComponent={
-          !loading && (
-            <Text style={{ color: '#888', padding: 16 }}>No recent orders found.</Text>
-          )
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.recentCard} 
-            activeOpacity={0.85} 
-            onPress={() => navigation.navigate('OrderDetails', { order: item })}
-          >
-            <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] || '#888' }]}> 
-              <Text style={styles.statusText}>{STATUS_LABELS[item.status] || item.status}</Text>
-            </View>
-            <Text style={styles.recentOrderId}>Order #{item.id}</Text>
-            <Text style={styles.recentOrderUser}>{item.name || 'N/A'}</Text>
-            <Text style={styles.recentOrderTotal}>₦{item.totalPrice?.toLocaleString() ?? '--'}</Text>
-            <Text style={styles.recentOrderDate}>{item.createdAt instanceof Date && !isNaN(item.createdAt) ? item.createdAt.toLocaleDateString() : '--'}</Text>
-          </TouchableOpacity>
-        )}
-      />
-    </View>
-  );
-
   return (
-    <LinearGradient colors={['#1ABA7F', '#225F91']} style={styles.gradientBg}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1ABA7F" />}>
-          {/* Branded Header */}
-          <Animated.View style={[styles.header, { opacity: fadeAnim }]}> 
-            <View style={styles.headerRow}>
-              <View style={styles.headerText}>
+    <View style={styles.container}>
+      <LinearGradient colors={['#F8FAFC', '#F1F5F9']} style={styles.gradientBg}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1ABA7F" />}
+          >
+            {/* Header */}
+            <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
+              <View style={styles.headerLeft}>
+                <Text style={styles.greeting}>Welcome back!</Text>
                 {user?.pharmacy?.name && (
-                  <View style={styles.pharmacyNameRow}>
-                    <Ionicons name="business" size={28} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.pharmacyName}>Hi, {user.pharmacy.name}</Text>
+                  <Text style={styles.pharmacyName}>{user.pharmacy.name}</Text>
+                )}
+              </View>
+              <TouchableOpacity 
+                style={styles.notificationBtn} 
+                onPress={() => navigation.navigate('Notifications')}
+              >
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationCount}>3</Text>
+                </View>
+                <Ionicons name="notifications-outline" size={24} color="#225F91" />
+              </TouchableOpacity>
+            </Animated.View>
+
+            {loading ? (
+              <ActivityIndicator size="large" color="#1ABA7F" style={{ marginTop: 60 }} />
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={48} color="#DC2626" />
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={fetchDashboard}>
+                  <Text style={styles.retryText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : data ? (
+              <>
+                {/* Revenue Cards */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Today's Revenue</Text>
+                  <View style={styles.revenueGrid}>
+                    <RevenueCard
+                      icon="cart"
+                      label="Online Orders"
+                      value={data.revenueToday || 0}
+                      color="#1ABA7F"
+                      visible={showOnlineRevenue}
+                      toggleVisible={() => setShowOnlineRevenue(!showOnlineRevenue)}
+                      trend={data.revenueTrend}
+                    />
+                    <RevenueCard
+                      icon="storefront"
+                      label="Point of Sale"
+                      value={data.posRevenueToday || 0}
+                      color="#225F91"
+                      visible={showPosRevenue}
+                      toggleVisible={() => setShowPosRevenue(!showPosRevenue)}
+                      trend={data.posRevenueTrend}
+                    />
+                  </View>
+                </View>
+
+                {/* Stats Grid */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Overview</Text>
+                  <View style={styles.statsGrid}>
+                    <StatCard
+                      icon="cart"
+                      label="Online Orders"
+                      value={data.ordersToday || 0}
+                      color="#1ABA7F"
+                      trend={data.ordersTrend}
+                    />
+                    <StatCard
+                      icon="storefront"
+                      label="PoS Sales"
+                      value={data.posSalesToday || 0}
+                      color="#225F91"
+                      trend={data.posSalesTrend}
+                    />
+                    <StatCard
+                      icon="time"
+                      label="Pending"
+                      value={data.pendingOrders || 0}
+                      color="#F59E42"
+                      subtitle={`${data.processingOrders || 0} processing`}
+                    />
+                    <StatCard
+                      icon="alert-circle"
+                      label="Low Stock"
+                      value={data.inventoryAlerts || 0}
+                      color="#DC2626"
+                      subtitle={`${data.expiringMeds || 0} expiring soon`}
+                    />
+                  </View>
+                </View>
+
+                {/* Quick Actions */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Quick Actions</Text>
+                  <View style={styles.actionsGrid}>
+                    <QuickActionCard
+                      icon="add-circle"
+                      label="New Sale"
+                      description="Record walk-in purchase"
+                      color="#1ABA7F"
+                      onPress={() => navigation.navigate('NewSale')}
+                    />
+                    <QuickActionCard
+                      icon="time"
+                      label="Pending"
+                      description="View pending orders"
+                      color="#F59E42"
+                      badge={data.pendingOrders || 0}
+                      onPress={() => navigation.navigate('Orders', { filter: 'CONFIRMED' })}
+                    />
+                    <QuickActionCard
+                      icon="checkmark-circle"
+                      label="Ready"
+                      description="Ready for pickup"
+                      color="#225F91"
+                      badge={data.readyOrders || 0}
+                      onPress={() => navigation.navigate('Orders', { filter: 'READY_FOR_PICKUP' })}
+                    />
+                    <QuickActionCard
+                      icon="alert-circle"
+                      label="Low Stock"
+                      description="Restock medications"
+                      color="#DC2626"
+                      badge={data.inventoryAlerts || 0}
+                      onPress={() => navigation.navigate('Inventory', { filter: 'low-stock' })}
+                    />
+                  </View>
+                </View>
+
+                {/* Top Selling & Low Stock Side by Side */}
+                <View style={styles.doubleSection}>
+                  {/* Top Selling */}
+                  {data.topSellingMeds && data.topSellingMeds.length > 0 && (
+                    <View style={[styles.section, styles.halfSection]}>
+                      <View style={styles.sectionHeader}>
+                        <Ionicons name="trending-up" size={18} color="#1ABA7F" />
+                        <Text style={[styles.sectionTitle, styles.sectionTitleSmall]}>Top Sellers</Text>
+                      </View>
+                      <View style={styles.topMedsList}>
+                        {data.topSellingMeds.slice(0, 3).map((med, index) => (
+                          <TopMedItem key={index} med={med} index={index} />
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Low Stock */}
+                  {data.lowStockMeds && data.lowStockMeds.length > 0 && (
+                    <View style={[styles.section, styles.halfSection]}>
+                      <View style={styles.sectionHeader}>
+                        <Ionicons name="alert-circle" size={18} color="#DC2626" />
+                        <Text style={[styles.sectionTitle, styles.sectionTitleSmall]}>Low Stock</Text>
+                      </View>
+                      <View style={styles.lowStockList}>
+                        {data.lowStockMeds.slice(0, 3).map((med, index) => (
+                          <LowStockItem key={index} med={med} />
+                        ))}
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.viewAllButton}
+                        onPress={() => navigation.navigate('Inventory', { filter: 'low-stock' })}
+                      >
+                        <Text style={styles.viewAllButtonText}>View All</Text>
+                        <Ionicons name="arrow-forward" size={14} color="#1ABA7F" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* Recent Activity */}
+                {data.recentActivity && data.recentActivity.length > 0 && (
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>Recent Activity</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Orders')}>
+                        <Text style={styles.viewAllLink}>View All →</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.activityList}>
+                      {data.recentActivity.slice(0, 5).map((activity) => (
+                        <ActivityItem key={activity.id} activity={activity} />
+                      ))}
+                    </View>
                   </View>
                 )}
-                <Text style={styles.subtitle}>Here’s your pharmacy at a glance.</Text>
-              </View>
-              <TouchableOpacity style={styles.notificationBtn} onPress={() => navigation.navigate('Notifications')}>
-                <Ionicons name="notifications" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-            {/* Optionally add logo/avatar here */}
-            {/* <Image source={require('../../assets/logo.png')} style={styles.logo} /> */}
-          </Animated.View>
-
-          {/* Stat Cards */}
-          {loading ? (
-            <ActivityIndicator size="large" color="#fff" style={{ marginTop: 40 }} />
-          ) : error ? (
-            <Text style={styles.error}>{error}</Text>
-          ) : data ? (
-            renderStatCards()
-          ) : null}
-
-          {/* Recent Orders */}
-          {renderRecentOrders()}
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+              </>
+            ) : null}
+          </ScrollView>
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradientBg: { flex: 1 },
-  safeArea: { flex: 1, paddingHorizontal: 8 }, // Add horizontal padding for dashboard edge
-  scrollContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingVertical: 36, paddingHorizontal: 8 },
-  header: { marginBottom: 16, alignItems: 'center', width: '100%' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', marginBottom: 16, paddingHorizontal: 8 },
-  headerText: { flex: 1 },
-  pharmacyNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  pharmacyName: { fontSize: 28, fontWeight: 'bold', color: '#fff', textAlign: 'left', textShadowColor: 'rgba(34,95,145,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
-  subtitle: { fontSize: 16, color: '#fff', textAlign: 'left', marginTop: 6, textShadowColor: 'rgba(34,95,145,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-  notificationBtn: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 10, marginLeft: 16 },
-  // Cards
-  cardsGrid: { flexDirection: 'column', alignItems: 'center', gap: 0, marginBottom: 36, width: '100%', maxWidth: 520 },
-  card: {
-    borderRadius: 22,
-    paddingVertical: 18,
-    marginVertical: 10,
-    minWidth: 340,
+  container: {
+    flex: 1,
+  },
+  gradientBg: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
-    backgroundColor: 'rgba(255,255,255,0.98)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,95,145,0.07)',
+    marginBottom: 32,
   },
-  cardLabel: {
-    color: '#225F91',
+  headerLeft: {
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 14,
+    color: '#6B7280',
     fontWeight: '500',
-    fontSize: 15,
-    marginBottom: 6,
-    textAlign: 'center',
-    letterSpacing: 0.1,
-    opacity: 0.85,
+    marginBottom: 4,
   },
-  cardLabelOrders: {
-    color: '#225F91',
-    fontWeight: '500',
-    fontSize: 15,
-    marginBottom: 6,
-    textAlign: 'center',
-    letterSpacing: 0.1,
-    opacity: 0.85,
-  },
-  cardLabelPoS: {
-    color: '#2563EB',
-    fontWeight: '500',
-    fontSize: 15,
-    marginBottom: 6,
-    textAlign: 'center',
-    letterSpacing: 0.1,
-    opacity: 0.85,
-  },
-  cardValue: {
+  pharmacyName: {
+    fontSize: 28,
     fontWeight: 'bold',
-    fontSize: 34,
-    marginBottom: 2,
-    textAlign: 'center',
-    letterSpacing: 0.3,
-    fontVariant: ['tabular-nums'],
+    color: '#111827',
   },
-  // Actions
-  actionsRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 8, marginBottom: 24 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1ABA7F', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 24, marginHorizontal: 8, shadowColor: '#225F91', shadowOpacity: 0.13, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
-  actionText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  // Recent Orders
-  recentSection: { width: '100%', maxWidth: 420, marginTop: 8 },
-  recentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 8 },
-  recentTitle: { color: '#225F91', fontWeight: 'bold', fontSize: 18 },
-  recentLink: { color: '#1ABA7F', fontWeight: 'bold', fontSize: 15 },
-  recentList: { paddingLeft: 8, paddingRight: 8 },
-  recentCard: { backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 16, padding: 16, marginRight: 14, minWidth: 140, alignItems: 'flex-start', shadowColor: '#1ABA7F', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
-  statusBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 10, alignSelf: 'flex-start', marginBottom: 6 },
-  statusText: { color: '#fff', fontWeight: 'bold', fontSize: 13, textTransform: 'capitalize' },
-  recentOrderId: { color: '#225F91', fontWeight: 'bold', fontSize: 15, marginBottom: 2 },
-  recentOrderUser: { color: '#1ABA7F', fontSize: 14, marginBottom: 2 },
-  recentOrderTotal: { color: '#4B5563', fontSize: 14, marginBottom: 2 },
-  recentOrderDate: { color: '#9CA3AF', fontSize: 12 },
-  error: { color: '#fff', backgroundColor: 'rgba(220,53,69,0.85)', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 12, textAlign: 'center', fontWeight: 'bold', fontSize: 15, marginTop: 24 },
-  revenueRow: {
+  notificationBtn: {
+    position: 'relative',
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#DC2626',
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  notificationCount: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  sectionTitleSmall: {
+    fontSize: 16,
+    marginBottom: 0,
+  },
+  viewAllLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1ABA7F',
+  },
+  revenueGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  revenueCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  revenueHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  revenueHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  miniTrendBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  miniTrendText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  eyeButton: {
+    padding: 4,
+  },
+  revenueLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  revenueValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  statHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  trendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  trendText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  statSubtitle: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  actionCard: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
+    position: 'relative',
+  },
+  actionBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  actionBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  actionIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  actionLabel: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  actionDesc: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  doubleSection: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  halfSection: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  topMedsList: {
+    gap: 8,
+  },
+  topMedItem: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  topMedRank: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topMedRankText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  topMedContent: {
+    flex: 1,
+  },
+  topMedName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  topMedStats: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  topMedStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  topMedStatText: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  lowStockList: {
+    gap: 8,
+  },
+  lowStockItem: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  lowStockHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  lowStockName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  lowStockBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  lowStockBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  lowStockForm: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
+    gap: 4,
+    marginTop: 8,
+    paddingVertical: 8,
+  },
+  viewAllButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1ABA7F',
+  },
+  activityList: {
+    gap: 8,
+  },
+  activityItem: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  activityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 6,
-    minHeight: 32,
   },
-
-  // Remove leftIcon and rightIcon styles
-  
-  revenueLabelOrders: {
-    fontSize: 15,
-    fontWeight: '500',
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  activityAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
     color: '#225F91',
-    textAlign: 'center',
-    opacity: 0.85,
   },
-  revenueLabelPoS: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#2563EB',
-    textAlign: 'center',
-    opacity: 0.85,
+  activityFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-}); 
+  activityStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  activityStatusText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  activityTime: {
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 60,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#1ABA7F',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
